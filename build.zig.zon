@@ -1,0 +1,56 @@
+.{
+    .name = .zhottem,
+    .version = "0.0.0",
+
+    .dependencies = .{
+        // See `zig fetch --save <url>` for a command-line interface for adding dependencies.
+        //.example = .{
+        //    .path = "foo",
+        //    .url = "https://example.com/foo.tar.gz",
+        //    .hash = "...",
+        //    .lazy = false,
+        //},
+        .vulkan_headers = .{
+            .url = "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v1.3.300.tar.gz",
+            .hash = "1220baf3b47dcd52522e25f15090fd0ca5860716c7f88a339f8ef34b6c9a49548951",
+        },
+        .vulkan_zig = .{
+            .url = "https://github.com/Snektron/vulkan-zig/archive/dcd538828c513919c3abf0bd55afacdce0576c61.tar.gz",
+            .hash = "vulkan-0.0.0-r7Ytxy5bAwASnqFlLMD4V42z3LolS8n7xv3RlbXhAhv0",
+        },
+        .imgui = .{
+            .url = "https://github.com/ocornut/imgui/archive/refs/tags/v1.91.8.tar.gz",
+            .hash = "122008fc93d2a565a333ec120399fa8904d42a3b2e4307d54af50dade393207f8f06",
+        },
+        .dear_bindings = .{
+            .url = "https://github.com/dearimgui/dear_bindings/archive/f6e8ea713405914b16f8bf018ee7abaccdbae283.tar.gz",
+            .hash = "122036b555e00c1dbb1addc3eb8e1bf80baf1c72266577f245340bac9648523bfaab",
+        },
+        .jolt = .{
+            .url = "https://github.com/thrombe/JoltPhysics/archive/refs/heads/v5.3.0.tar.gz",
+            .hash = "N-V-__8AAL9iCgLDerAnVZqXJociYcTwjyivS1xg4M6X7GAB",
+        },
+        .stb = .{
+            .url = "https://github.com/nothings/stb/archive/f0569113c93ad095470c54bf34a17b36646bbbb5.tar.gz",
+            .hash = "N-V-__8AAJopTgBuYbPPno6GEtqFAeIhKHyhTJcJ-Vp2FpHj",
+        },
+        .steamworks = .{
+            .url = "https://github.com/thrombe/steamworks-sdk/archive/a99c063258fec0454c9b0e8a23c1ad48d0f13423.tar.gz",
+            .hash = "N-V-__8AAL1eogB5pqXCAPZa7Drz5001tj6Otkwrwt7o1948",
+        },
+        .remotery = .{
+            .url = "https://github.com/Celtoys/Remotery/archive/5483f65b60334059933ff82464d8ea6882d20073.tar.gz",
+            .hash = "N-V-__8AAKrBEQDvjEgWGbLAUmNXF7xbsdKINldFKwQnhqhk",
+        },
+        .tracy = .{
+            // TODO: disabled until nixpkgs gets 0.12
+            // .url = "https://github.com/wolfpld/tracy/archive/refs/tags/v0.12.0.tar.gz",
+            // .hash = "N-V-__8AABI9PwGkEDxc-gkF60lgvJ3cKJv44jVYIWomN7dW",
+            .url = "https://github.com/wolfpld/tracy/archive/refs/tags/v0.11.1.tar.gz",
+            .hash = "N-V-__8AAMeOlQEipHjcyu0TCftdAi9AQe7EXUDJOoVe0k-t",
+        },
+    },
+
+    .paths = .{""},
+    .fingerprint = 0xb69d48f012de28c6,
+}
