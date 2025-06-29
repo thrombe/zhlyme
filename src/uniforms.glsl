@@ -38,14 +38,24 @@
      int world_size_x;
      int world_size_y;
      float pheromone_attraction_scale;
+     float entropy;
  };
 
  struct RandSeed {
      int seed;
  };
 
- struct PushConstants {
+ struct PushConstantsCompute {
      RandSeed rand;
+ };
+
+ struct ReduceStep {
+     int step;
+ };
+
+ struct PushConstantsReduce {
+     RandSeed rand;
+     ReduceStep reduce;
  };
 
  struct Camera2DMeta {

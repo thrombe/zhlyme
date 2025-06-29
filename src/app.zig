@@ -461,7 +461,7 @@ pub const ResourceManager = struct {
     pub const PushConstants = struct {
         pub const Reduce = struct {
             rand: push_components.RandSeed,
-            step: push_components.ReduceStep,
+            reduce: push_components.ReduceStep,
         };
         pub const Compute = struct {
             rand: push_components.RandSeed,
@@ -474,7 +474,7 @@ pub const ResourceManager = struct {
                 const range = vk.PushConstantRange{
                     .stage_flags = .{ .compute_bit = true },
                     .offset = 0,
-                    .size = @sizeOf(ResourceManager.PushConstantsCompute),
+                    .size = @sizeOf(ResourceManager.PushConstants.Compute),
                 };
             };
 
@@ -513,6 +513,7 @@ pub const ResourceManager = struct {
             world_size_y: i32,
 
             pheromone_attraction_scale: f32 = 1.0,
+            entropy: f32 = 0.1,
         };
 
         fn from(
@@ -620,6 +621,7 @@ pub const RendererState = struct {
         try gen.add_struct("Ant", ResourceManager.Ant);
         try gen.add_struct("Params", ResourceManager.Uniforms.Params);
         try gen.add_struct("PushConstantsCompute", ResourceManager.PushConstants.Compute);
+        try gen.add_struct("PushConstantsReduce", ResourceManager.PushConstants.Reduce);
         try gen.add_struct("Uniforms", ResourceManager.Uniforms);
         try gen.add_enum("_bind", ResourceManager.UniformBinds);
         try gen.dump_shader("src/uniforms.glsl");
@@ -673,7 +675,7 @@ pub const RendererState = struct {
             .stage = .compute,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{ "ant_COUNT_PASS", "COMPUTE_PASS" }),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{ "COUNT_PASS", "COMPUTE_PASS" }),
         });
         try shader_stages.append(.{
             .name = "bin_prefix_sum",
@@ -687,7 +689,7 @@ pub const RendererState = struct {
             .stage = .compute,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{ "ant_BINNING_PASS", "COMPUTE_PASS" }),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{ "BINNING_PASS", "COMPUTE_PASS" }),
         });
         try shader_stages.append(.{
             .name = "tick_ants",
@@ -884,7 +886,7 @@ pub const RendererState = struct {
         const device = &ctx.device;
 
         const alloc = app_state.arena.allocator();
-        // _ = alloc;
+        _ = alloc;
 
         // std.mem.swap(DescriptorSet, &self.descriptor_set, &self.descriptor_set_back);
 
@@ -896,90 +898,90 @@ pub const RendererState = struct {
 
         try cmdbuf.begin(device);
 
-        // spawn ants
-        cmdbuf.bindCompute(device, .{
-            .pipeline = self.pipelines.spawn_ants,
-            .desc_set = self.descriptor_set.set,
-        });
+        // // spawn ants
+        // cmdbuf.bindCompute(device, .{
+        //     .pipeline = self.pipelines.spawn_ants,
+        //     .desc_set = self.descriptor_set.set,
+        // });
 
-        // TODO: oof. don't use arena allocator. somehow retain this memory somewhere.
-        {
-            const constants = try alloc.create(ResourceManager.PushConstants.Compute);
-            constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
-            cmdbuf.push_constants(device, self.pipelines.spawn_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
-        }
-        cmdbuf.dispatch(device, .{ .x = 1 });
-        cmdbuf.memBarrier(device, .{});
+        // // TODO: oof. don't use arena allocator. somehow retain this memory somewhere.
+        // {
+        //     const constants = try alloc.create(ResourceManager.PushConstants.Compute);
+        //     constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+        //     cmdbuf.push_constants(device, self.pipelines.spawn_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+        // }
+        // cmdbuf.dispatch(device, .{ .x = 1 });
+        // cmdbuf.memBarrier(device, .{});
 
-        for (0..app_state.steps_per_frame) |_| {
-            // bin reset
-            cmdbuf.bindCompute(device, .{
-                .pipeline = self.pipelines.bin_reset,
-                .desc_set = self.descriptor_set.set,
-            });
-            cmdbuf.dispatch(device, .{ .x = math.divide_roof(cast(u32, app_state.params.bin_buf_size), 64) });
-            cmdbuf.memBarrier(device, .{});
+        // for (0..app_state.steps_per_frame) |_| {
+        //     // bin reset
+        //     cmdbuf.bindCompute(device, .{
+        //         .pipeline = self.pipelines.bin_reset,
+        //         .desc_set = self.descriptor_set.set,
+        //     });
+        //     cmdbuf.dispatch(device, .{ .x = math.divide_roof(cast(u32, app_state.params.bin_buf_size), 64) });
+        //     cmdbuf.memBarrier(device, .{});
 
-            // count ants
-            cmdbuf.bindCompute(device, .{
-                .pipeline = self.pipelines.ant_count,
-                .desc_set = self.descriptor_set.set,
-            });
-            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
-            cmdbuf.memBarrier(device, .{});
+        //     // count ants
+        //     cmdbuf.bindCompute(device, .{
+        //         .pipeline = self.pipelines.ant_count,
+        //         .desc_set = self.descriptor_set.set,
+        //     });
+        //     cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
+        //     cmdbuf.memBarrier(device, .{});
 
-            // bin count prefix sum
-            var reduce_step: u5 = 0;
-            while (true) : (reduce_step += 1) {
-                cmdbuf.bindCompute(device, .{
-                    .pipeline = self.pipelines.bin_prefix_sum,
-                    .desc_set = self.descriptor_set.set,
-                });
+        //     // bin count prefix sum
+        //     var reduce_step: u5 = 0;
+        //     while (true) : (reduce_step += 1) {
+        //         cmdbuf.bindCompute(device, .{
+        //             .pipeline = self.pipelines.bin_prefix_sum,
+        //             .desc_set = self.descriptor_set.set,
+        //         });
 
-                {
-                    const constants = try alloc.create(ResourceManager.PushConstants.Reduce);
-                    constants.* = .{ .step = .{ .step = reduce_step }, .rand = .{ .seed = app_state.rng.random().int(i32) } };
-                    cmdbuf.push_constants(device, self.pipelines.bin_prefix_sum.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
-                }
+        //         {
+        //             const constants = try alloc.create(ResourceManager.PushConstants.Reduce);
+        //             constants.* = .{ .step = .{ .step = reduce_step }, .rand = .{ .seed = app_state.rng.random().int(i32) } };
+        //             cmdbuf.push_constants(device, self.pipelines.bin_prefix_sum.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+        //         }
 
-                // 1 larger then the buffer to store capacities
-                cmdbuf.dispatch(device, .{ .x = math.divide_roof(cast(u32, app_state.params.bin_buf_size + 1), 64) });
-                cmdbuf.memBarrier(device, .{});
+        //         // 1 larger then the buffer to store capacities
+        //         cmdbuf.dispatch(device, .{ .x = math.divide_roof(cast(u32, app_state.params.bin_buf_size + 1), 64) });
+        //         cmdbuf.memBarrier(device, .{});
 
-                // std.debug.print("{any} {any}\n", .{ reduce_step, app_state.params.bin_buf_size - (@as(i32, 1) << reduce_step) });
-                if (app_state.params.bin_buf_size - (@as(i32, 1) << reduce_step) < 0) {
-                    break;
-                }
+        //         // std.debug.print("{any} {any}\n", .{ reduce_step, app_state.params.bin_buf_size - (@as(i32, 1) << reduce_step) });
+        //         if (app_state.params.bin_buf_size - (@as(i32, 1) << reduce_step) < 0) {
+        //             break;
+        //         }
 
-                std.mem.swap(DescriptorSet, &self.descriptor_set, &self.descriptor_set_back);
-            }
+        //         std.mem.swap(DescriptorSet, &self.descriptor_set, &self.descriptor_set_back);
+        //     }
 
-            // bin ants
-            cmdbuf.bindCompute(device, .{
-                .pipeline = self.pipelines.ant_binning,
-                .desc_set = self.descriptor_set.set,
-            });
-            {
-                const constants = try alloc.create(ResourceManager.PushConstants.Compute);
-                constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
-                cmdbuf.push_constants(device, self.pipelines.ant_binning.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
-            }
-            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
-            cmdbuf.memBarrier(device, .{});
+        //     // bin ants
+        //     cmdbuf.bindCompute(device, .{
+        //         .pipeline = self.pipelines.ant_binning,
+        //         .desc_set = self.descriptor_set.set,
+        //     });
+        //     {
+        //         const constants = try alloc.create(ResourceManager.PushConstants.Compute);
+        //         constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+        //         cmdbuf.push_constants(device, self.pipelines.ant_binning.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+        //     }
+        //     cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
+        //     cmdbuf.memBarrier(device, .{});
 
-            // tick ants
-            cmdbuf.bindCompute(device, .{
-                .pipeline = self.pipelines.tick_ants,
-                .desc_set = self.descriptor_set.set,
-            });
-            {
-                const constants = try alloc.create(ResourceManager.PushConstants.Compute);
-                constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
-                cmdbuf.push_constants(device, self.pipelines.tick_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
-            }
-            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
-            cmdbuf.memBarrier(device, .{});
-        }
+        //     // tick ants
+        //     cmdbuf.bindCompute(device, .{
+        //         .pipeline = self.pipelines.tick_ants,
+        //         .desc_set = self.descriptor_set.set,
+        //     });
+        //     {
+        //         const constants = try alloc.create(ResourceManager.PushConstants.Compute);
+        //         constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+        //         cmdbuf.push_constants(device, self.pipelines.tick_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+        //     }
+        //     cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
+        //     cmdbuf.memBarrier(device, .{});
+        // }
 
         cmdbuf.dynamic_render_begin(device, .{
             .image = app.screen_image.view,
@@ -994,18 +996,18 @@ pub const RendererState = struct {
             device.cmdDraw(buf, 6, 1, 0, 0);
         }
 
-        // render ants
-        cmdbuf.draw_indirect(device, .{
-            .pipeline = &self.pipelines.render,
-            .desc_sets = &.{
-                self.descriptor_set.set,
-            },
-            .calls = .{
-                .buffer = app.resources.ants_draw_call_buf.buffer,
-                .count = 1,
-                .stride = @sizeOf(ResourceManager.DrawCall),
-            },
-        });
+        // // render ants
+        // cmdbuf.draw_indirect(device, .{
+        //     .pipeline = &self.pipelines.render,
+        //     .desc_sets = &.{
+        //         self.descriptor_set.set,
+        //     },
+        //     .calls = .{
+        //         .buffer = app.resources.ants_draw_call_buf.buffer,
+        //         .count = 1,
+        //         .stride = @sizeOf(ResourceManager.DrawCall),
+        //     },
+        // });
 
         cmdbuf.dynamic_render_end(device);
         cmdbuf.draw_into_swapchain(device, .{
