@@ -385,7 +385,7 @@ void set_seed(int id) {
         vec2 rounded = vec2(floor(coord.x), floor(coord.y));
         float checker = mod(floor(rounded.x) + floor(rounded.y), 2.0);
 
-        vec3 color = mix(vec3(0.2, 0.15, 0.35), vec3(0.25, 0.20, 0.40), checker);
+        vec3 color = mix(vec3(80, 90, 80)/255.0, vec3(120, 124, 100)/255.0, checker);
 
         // debug renderr `ant_bins`
         // ivec2 pos = ivec2(int(coord.x), int(coord.y) + 3);
