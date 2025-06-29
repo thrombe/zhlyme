@@ -271,22 +271,20 @@ pub const ResourceManager = struct {
     uniform: Uniforms,
     uniform_buf: Buffer,
 
-    particle_types: []ParticleType,
-    particle_force_matrix: []ParticleForce,
+    ant_types: []AntType,
 
     scratch_buf: Buffer,
-    particle_types_buf: Buffer,
-    particle_force_matrix_buf: Buffer,
-    particles_back_buf: Buffer,
-    particles_buf: Buffer,
-    particle_bins_back_buf: Buffer,
-    particle_bins_buf: Buffer,
+    ant_types_buf: Buffer,
+    ants_back_buf: Buffer,
+    ants_buf: Buffer,
+    ant_bins_back_buf: Buffer,
+    ant_bins_buf: Buffer,
     // updated from gpu side
-    particles_draw_call_buf: Buffer,
+    ants_draw_call_buf: Buffer,
 
     pub fn init(engine: *Engine, pool: vk.CommandPool, v: struct {
-        num_particles: u32 = 100000,
-        particle_type_count: u32 = 10,
+        num_ants: u32 = 100000,
+        ant_type_count: u32 = 10,
     }) !@This() {
         const ctx = &engine.graphics;
         const device = &ctx.device;
@@ -307,52 +305,42 @@ pub const ResourceManager = struct {
         }, std.mem.zeroes(Uniforms), pool);
         errdefer uniform_buf.deinit(device);
 
-        const particle_types = try allocator.alloc(ParticleType, v.particle_type_count);
-        errdefer allocator.free(particle_types);
-        @memset(particle_types, std.mem.zeroes(ParticleType));
+        const ant_types = try allocator.alloc(AntType, v.ant_type_count);
+        errdefer allocator.free(ant_types);
+        @memset(ant_types, std.mem.zeroes(AntType));
 
-        const particle_force_matrix = try allocator.alloc(ParticleForce, v.particle_type_count * v.particle_type_count);
-        errdefer allocator.free(particle_force_matrix);
-        @memset(particle_force_matrix, std.mem.zeroes(ParticleForce));
-
-        var particle_types_buf = try Buffer.new_from_slice(ctx, .{
+        var ant_types_buf = try Buffer.new_from_slice(ctx, .{
             .usage = .{ .storage_buffer_bit = true },
             .memory_type = .{ .device_local_bit = true, .host_visible_bit = true, .host_coherent_bit = true },
-        }, particle_types, pool);
-        errdefer particle_types_buf.deinit(device);
+        }, ant_types, pool);
+        errdefer ant_types_buf.deinit(device);
 
-        var particle_force_matrix_buf = try Buffer.new_from_slice(ctx, .{
-            .usage = .{ .storage_buffer_bit = true },
-            .memory_type = .{ .device_local_bit = true, .host_visible_bit = true, .host_coherent_bit = true },
-        }, particle_force_matrix, pool);
-        errdefer particle_force_matrix_buf.deinit(device);
-
-        var particles_back = try Buffer.new(ctx, .{
-            .size = @sizeOf(Particle) * v.num_particles,
+        var ants_back = try Buffer.new(ctx, .{
+            .size = @sizeOf(Ant) * v.num_ants,
             .usage = .{ .storage_buffer_bit = true },
         });
-        errdefer particles_back.deinit(device);
+        errdefer ants_back.deinit(device);
 
-        var particles = try Buffer.new(ctx, .{
-            .size = @sizeOf(Particle) * v.num_particles,
+        var ants = try Buffer.new(ctx, .{
+            .size = @sizeOf(Ant) * v.num_ants,
             .usage = .{ .storage_buffer_bit = true },
         });
-        errdefer particles.deinit(device);
+        errdefer ants.deinit(device);
 
         // TODO: better bin buffer sizes
         const res = .{ .width = @as(u32, 1000), .height = @as(u32, 1000) };
         // 1 larger than the max number of bins
-        var particle_bins_back = try Buffer.new(ctx, .{
+        var ant_bins_back = try Buffer.new(ctx, .{
             .size = @sizeOf(i32) * (1 + res.width * res.height) * 5,
             .usage = .{ .storage_buffer_bit = true },
         });
-        errdefer particle_bins_back.deinit(device);
+        errdefer ant_bins_back.deinit(device);
 
-        var particle_bins = try Buffer.new(ctx, .{
+        var ant_bins = try Buffer.new(ctx, .{
             .size = @sizeOf(i32) * (1 + res.width * res.height),
             .usage = .{ .storage_buffer_bit = true },
         });
-        errdefer particle_bins.deinit(device);
+        errdefer ant_bins.deinit(device);
 
         var scratch = try Buffer.new(ctx, .{
             .size = 4 * 4 * 100,
@@ -369,31 +357,27 @@ pub const ResourceManager = struct {
         return @This(){
             .uniform = std.mem.zeroes(Uniforms),
             .uniform_buf = uniform_buf,
-            .particles_draw_call_buf = draw_call,
+            .ants_draw_call_buf = draw_call,
             .scratch_buf = scratch,
-            .particle_types = particle_types,
-            .particle_force_matrix = particle_force_matrix,
-            .particle_types_buf = particle_types_buf,
-            .particle_force_matrix_buf = particle_force_matrix_buf,
-            .particles_back_buf = particles_back,
-            .particles_buf = particles,
-            .particle_bins_back_buf = particle_bins_back,
-            .particle_bins_buf = particle_bins,
+            .ant_types = ant_types,
+            .ant_types_buf = ant_types_buf,
+            .ants_back_buf = ants_back,
+            .ants_buf = ants,
+            .ant_bins_back_buf = ant_bins_back,
+            .ant_bins_buf = ant_bins,
         };
     }
 
     pub fn deinit(self: *@This(), device: *Device) void {
         self.uniform_buf.deinit(device);
-        self.particles_draw_call_buf.deinit(device);
+        self.ants_draw_call_buf.deinit(device);
         self.scratch_buf.deinit(device);
-        allocator.free(self.particle_types);
-        self.particle_types_buf.deinit(device);
-        allocator.free(self.particle_force_matrix);
-        self.particle_force_matrix_buf.deinit(device);
-        self.particles_back_buf.deinit(device);
-        self.particles_buf.deinit(device);
-        self.particle_bins_back_buf.deinit(device);
-        self.particle_bins_buf.deinit(device);
+        allocator.free(self.ant_types);
+        self.ant_types_buf.deinit(device);
+        self.ants_back_buf.deinit(device);
+        self.ants_buf.deinit(device);
+        self.ant_bins_back_buf.deinit(device);
+        self.ant_bins_buf.deinit(device);
     }
 
     pub fn add_binds(self: *@This(), builder: *render_utils.DescriptorSet.Builder, builder_back: *render_utils.DescriptorSet.Builder) !void {
@@ -404,30 +388,27 @@ pub const ResourceManager = struct {
         }.func;
 
         try add_to_set(builder, &self.uniform_buf, .camera);
-        try add_to_set(builder, &self.particles_draw_call_buf, .particles_draw_call);
+        try add_to_set(builder, &self.ants_draw_call_buf, .ants_draw_call);
         try add_to_set(builder, &self.scratch_buf, .scratch);
-        try add_to_set(builder, &self.particle_types_buf, .particle_types);
-        try add_to_set(builder, &self.particle_force_matrix_buf, .particle_force_matrix);
-        try add_to_set(builder, &self.particles_back_buf, .particles_back);
-        try add_to_set(builder, &self.particles_buf, .particles);
-        try add_to_set(builder, &self.particle_bins_back_buf, .particle_bins_back);
-        try add_to_set(builder, &self.particle_bins_buf, .particle_bins);
+        try add_to_set(builder, &self.ant_types_buf, .ant_types);
+        try add_to_set(builder, &self.ants_back_buf, .ants_back);
+        try add_to_set(builder, &self.ants_buf, .ants);
+        try add_to_set(builder, &self.ant_bins_back_buf, .ant_bins_back);
+        try add_to_set(builder, &self.ant_bins_buf, .ant_bins);
 
         try add_to_set(builder_back, &self.uniform_buf, .camera);
-        try add_to_set(builder_back, &self.particles_draw_call_buf, .particles_draw_call);
+        try add_to_set(builder_back, &self.ants_draw_call_buf, .ants_draw_call);
         try add_to_set(builder_back, &self.scratch_buf, .scratch);
-        try add_to_set(builder_back, &self.particle_types_buf, .particle_types);
-        try add_to_set(builder_back, &self.particle_force_matrix_buf, .particle_force_matrix);
-        try add_to_set(builder_back, &self.particles_back_buf, .particles_back);
-        try add_to_set(builder_back, &self.particles_buf, .particles);
-        try add_to_set(builder_back, &self.particle_bins_buf, .particle_bins_back);
-        try add_to_set(builder_back, &self.particle_bins_back_buf, .particle_bins);
+        try add_to_set(builder_back, &self.ant_types_buf, .ant_types);
+        try add_to_set(builder_back, &self.ants_back_buf, .ants_back);
+        try add_to_set(builder_back, &self.ants_buf, .ants);
+        try add_to_set(builder_back, &self.ant_bins_buf, .ant_bins_back);
+        try add_to_set(builder_back, &self.ant_bins_back_buf, .ant_bins);
     }
 
     pub fn upload(self: *@This(), device: *Device) !void {
         try self.update_uniforms(device);
-        try self.update_particle_types(device);
-        try self.update_force_matrix(device);
+        try self.update_ant_types(device);
     }
 
     fn update_uniforms(self: *@This(), device: *Device) !void {
@@ -435,121 +416,103 @@ pub const ResourceManager = struct {
         const mapped = maybe_mapped orelse return error.MappingMemoryFailed;
         defer device.unmapMemory(self.uniform_buf.memory);
 
-        const mem: *Uniforms = @ptrCast(@alignCast(mapped));
-        mem.* = self.uniform;
+        const mem: *Uniforms.shader_type = @ptrCast(@alignCast(mapped));
+        mem.* = utils_mod.ShaderUtils.shader_object(Uniforms.shader_type, self.uniform);
     }
 
-    fn update_particle_types(self: *@This(), device: *Device) !void {
-        const maybe_mapped = try device.mapMemory(self.particle_types_buf.memory, 0, vk.WHOLE_SIZE, .{});
+    fn update_ant_types(self: *@This(), device: *Device) !void {
+        const maybe_mapped = try device.mapMemory(self.ant_types_buf.memory, 0, vk.WHOLE_SIZE, .{});
         const mapped = maybe_mapped orelse return error.MappingMemoryFailed;
-        defer device.unmapMemory(self.particle_types_buf.memory);
+        defer device.unmapMemory(self.ant_types_buf.memory);
 
-        const buf = self.particle_types;
-        const mem: [*c]ParticleType = @ptrCast(@alignCast(mapped));
-        @memcpy(mem[0..buf.len], buf);
-    }
-
-    fn update_force_matrix(self: *@This(), device: *Device) !void {
-        const maybe_mapped = try device.mapMemory(self.particle_force_matrix_buf.memory, 0, vk.WHOLE_SIZE, .{});
-        const mapped = maybe_mapped orelse return error.MappingMemoryFailed;
-        defer device.unmapMemory(self.particle_force_matrix_buf.memory);
-
-        const buf = self.particle_force_matrix;
-        const mem: [*c]ParticleForce = @ptrCast(@alignCast(mapped));
+        const buf = self.ant_types;
+        const mem: [*c]AntType = @ptrCast(@alignCast(mapped));
         @memcpy(mem[0..buf.len], buf);
     }
 
     pub const UniformBinds = enum(u32) {
         camera,
-        particles_draw_call,
+        ants_draw_call,
         scratch,
-        particle_types,
-        particle_force_matrix,
-        particles_back,
-        particles,
-        particle_bins_back,
-        particle_bins,
+        ant_types,
+        ants_back,
+        ants,
+        ant_bins_back,
+        ant_bins,
 
         pub fn bind(self: @This()) u32 {
             return @intFromEnum(self);
         }
     };
-    pub const ParticleType = extern struct {
+    pub const AntType = extern struct {
         color: Vec4,
-        particle_scale: f32,
-
-        _pad0: u32 = 0,
-        _pad1: u32 = 0,
-        _pad2: u32 = 0,
+        strength: f32,
+        radius: f32,
     };
-    pub const ParticleForce = extern struct {
-        attraction_strength: f32,
-        attraction_radius: f32,
-        attraction_peak_dist_factor: f32,
-        collision_strength: f32,
-        collision_radius: f32,
-
-        _pad0: u32 = 0,
-        _pad1: u32 = 0,
-        _pad2: u32 = 0,
-    };
-    pub const Particle = extern struct {
-        pos: math.Vec3,
-        vel: math.Vec3,
+    pub const Ant = extern struct {
+        pos: math.Vec2,
+        vel: math.Vec2,
         type_index: u32,
         age: f32,
         exposure: f32,
-
-        _pad0: u32 = 0,
-        // _pad1: u32 = 0,
-        // _pad2: u32 = 0,
     };
     pub const DrawCall = vk.DrawIndexedIndirectCommand;
 
-    pub const PushConstants = extern struct {
-        reduce_step: i32 = 0,
-        seed: i32,
+    pub const PushConstants = struct {
+        pub const Reduce = struct {
+            rand: push_components.RandSeed,
+            step: push_components.ReduceStep,
+        };
+        pub const Compute = struct {
+            rand: push_components.RandSeed,
+        };
 
-        _pad0: u32 = 0,
-        _pad1: u32 = 0,
-        // _pad2: u32 = 0,
+        pub const push_components = struct {
+            pub const RandSeed = struct {
+                seed: i32,
+
+                const range = vk.PushConstantRange{
+                    .stage_flags = .{ .compute_bit = true },
+                    .offset = 0,
+                    .size = @sizeOf(ResourceManager.PushConstantsCompute),
+                };
+            };
+
+            pub const ReduceStep = struct {
+                step: i32,
+            };
+        };
     };
 
-    pub const Uniforms = extern struct {
+    pub const Uniforms = struct {
         camera: utils_mod.ShaderUtils.Camera2D,
         frame: utils_mod.ShaderUtils.Frame,
         mouse: utils_mod.ShaderUtils.Mouse,
         params: Params,
 
-        const Params = extern struct {
+        const shader_type = utils_mod.ShaderUtils.shader_type(@This());
+
+        const Params = struct {
             delta: f32 = 0,
-            particle_visual_size: u32 = 16,
+
             grid_size: u32 = 32,
             zoom: f32 = 1.0,
-            particle_z_shrinking_factor: f32 = 0.7,
-            particle_z_blur_factor: f32 = 0.27,
-            friction: f32,
-            entropy: f32 = 0.0,
-            collision_strength_scale: f32 = 96,
-            attraction_strength_scale: f32 = 27,
-            max_attraction_factor: f32 = 27,
-            randomize_particle_types: u32 = 0,
-            randomize_particle_attrs: u32 = 0,
-            particle_type_count: u32 = 0,
-            particle_count: u32 = 0,
+
+            randomize_ant_types: u32 = 0,
+            randomize_ant_attrs: u32 = 0,
+
+            ant_type_count: u32 = 0,
+            ant_count: u32 = 0,
             spawn_count: u32,
+
             bin_size: i32,
             bin_buf_size: i32,
             bin_buf_size_x: i32,
             bin_buf_size_y: i32,
-            bin_buf_size_z: i32,
             world_size_x: i32,
             world_size_y: i32,
-            world_size_z: i32,
 
-            // _pad0: u32 = 0,
-            // _pad1: u32 = 0,
-            // _pad2: u32 = 0,
+            pheromone_attraction_scale: f32 = 1.0,
         };
 
         fn from(
@@ -563,40 +526,20 @@ pub const ResourceManager = struct {
             const spawn_count = @min(state.spawn_count, 64);
             state.spawn_count -= spawn_count;
 
-            const particle_count = state.params.particle_count;
-            state.params.particle_count = @min(particle_count + spawn_count, state.max_particle_count);
-            state.params.spawn_count = state.params.particle_count - particle_count;
-            state.params.friction = @exp(-state.friction * state.params.delta);
-            state.params.particle_type_count = state.particle_type_count;
-            state.params.randomize_particle_types = @intCast(@intFromBool(state.randomize.particle_types));
-            state.params.randomize_particle_attrs = @intCast(@intFromBool(state.randomize.particle_attrs));
-
-            // cap requested world size's z coord.
-            state.requested_world_size.z = @min(state.requested_world_size.z, state.bin_size * state.bin_buf_size_z_max);
+            const ant_count = state.params.ant_count;
+            state.params.ant_count = @min(ant_count + spawn_count, state.max_ant_count);
+            state.params.spawn_count = state.params.ant_count - ant_count;
+            state.params.ant_type_count = state.ant_type_count;
+            state.params.randomize_ant_types = @intCast(@intFromBool(state.randomize.ant_types));
+            state.params.randomize_ant_attrs = @intCast(@intFromBool(state.randomize.ant_attrs));
 
             state.params.bin_size = state.bin_size;
             state.params.bin_buf_size_x = @divFloor(state.requested_world_size.x, state.bin_size);
             state.params.bin_buf_size_y = @divFloor(state.requested_world_size.y, state.bin_size);
-            state.params.bin_buf_size_z = @divFloor(state.requested_world_size.z, state.bin_size);
+            state.params.bin_buf_size = state.params.bin_buf_size_x * state.params.bin_buf_size_y;
 
-            // allow z to be 0
             state.params.world_size_x = state.params.bin_buf_size_x * state.bin_size;
             state.params.world_size_y = state.params.bin_buf_size_y * state.bin_size;
-            state.params.world_size_z = state.params.bin_buf_size_z * state.bin_size;
-
-            if (state.params.world_size_x == 0) {
-                state.params.world_size_x = state.requested_world_size.x;
-            }
-            if (state.params.world_size_y == 0) {
-                state.params.world_size_y = state.requested_world_size.y;
-            }
-            if (state.params.world_size_z == 0) {
-                state.params.world_size_z = state.requested_world_size.z;
-            }
-
-            // bin_buf_size_. > 0
-            state.params.bin_buf_size_z = @max(state.params.bin_buf_size_z, 1);
-            state.params.bin_buf_size = state.params.bin_buf_size_x * state.params.bin_buf_size_y * state.params.bin_buf_size_z;
 
             // TODO: don't fuse every frame man
             _ = state.cmdbuf_fuse.fuse();
@@ -643,22 +586,22 @@ pub const RendererState = struct {
     const Pipelines = struct {
         bg: GraphicsPipeline,
         render: GraphicsPipeline,
-        spawn_particles: ComputePipeline,
+        spawn_ants: ComputePipeline,
         bin_reset: ComputePipeline,
-        particle_count: ComputePipeline,
+        ant_count: ComputePipeline,
         bin_prefix_sum: ComputePipeline,
-        particle_binning: ComputePipeline,
-        tick_particles: ComputePipeline,
+        ant_binning: ComputePipeline,
+        tick_ants: ComputePipeline,
 
         fn deinit(self: *@This(), device: *Device) void {
             self.bg.deinit(device);
             self.render.deinit(device);
-            self.spawn_particles.deinit(device);
+            self.spawn_ants.deinit(device);
             self.bin_reset.deinit(device);
-            self.particle_count.deinit(device);
+            self.ant_count.deinit(device);
             self.bin_prefix_sum.deinit(device);
-            self.particle_binning.deinit(device);
-            self.tick_particles.deinit(device);
+            self.ant_binning.deinit(device);
+            self.tick_ants.deinit(device);
         }
     };
 
@@ -673,11 +616,10 @@ pub const RendererState = struct {
         var gen = try utils_mod.ShaderUtils.GlslBindingGenerator.init();
         defer gen.deinit();
         try gen.add_struct("DrawCall", ResourceManager.DrawCall);
-        try gen.add_struct("ParticleType", ResourceManager.ParticleType);
-        try gen.add_struct("ParticleForce", ResourceManager.ParticleForce);
-        try gen.add_struct("Particle", ResourceManager.Particle);
+        try gen.add_struct("AntType", ResourceManager.AntType);
+        try gen.add_struct("Ant", ResourceManager.Ant);
         try gen.add_struct("Params", ResourceManager.Uniforms.Params);
-        try gen.add_struct("PushConstants", ResourceManager.PushConstants);
+        try gen.add_struct("PushConstantsCompute", ResourceManager.PushConstants.Compute);
         try gen.add_struct("Uniforms", ResourceManager.Uniforms);
         try gen.add_enum("_bind", ResourceManager.UniformBinds);
         try gen.dump_shader("src/uniforms.glsl");
@@ -713,11 +655,11 @@ pub const RendererState = struct {
             .define = try alloc.dupe([]const u8, &[_][]const u8{"RENDER_VERT_PASS"}),
         });
         try shader_stages.append(.{
-            .name = "spawn_particles",
+            .name = "spawn_ants",
             .stage = .compute,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{ "SPAWN_PARTICLES_PASS", "COMPUTE_PASS" }),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{ "SPAWN_PASS", "COMPUTE_PASS" }),
         });
         try shader_stages.append(.{
             .name = "bin_reset",
@@ -727,11 +669,11 @@ pub const RendererState = struct {
             .define = try alloc.dupe([]const u8, &[_][]const u8{ "BIN_RESET_PASS", "COMPUTE_PASS" }),
         });
         try shader_stages.append(.{
-            .name = "particle_count",
+            .name = "ant_count",
             .stage = .compute,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{ "PARTICLE_COUNT_PASS", "COMPUTE_PASS" }),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{ "ant_COUNT_PASS", "COMPUTE_PASS" }),
         });
         try shader_stages.append(.{
             .name = "bin_prefix_sum",
@@ -741,18 +683,18 @@ pub const RendererState = struct {
             .define = try alloc.dupe([]const u8, &[_][]const u8{ "BIN_PREFIX_SUM_PASS", "COMPUTE_PASS" }),
         });
         try shader_stages.append(.{
-            .name = "particle_binning",
+            .name = "ant_binning",
             .stage = .compute,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{ "PARTICLE_BINNING_PASS", "COMPUTE_PASS" }),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{ "ant_BINNING_PASS", "COMPUTE_PASS" }),
         });
         try shader_stages.append(.{
-            .name = "tick_particles",
+            .name = "tick_ants",
             .stage = .compute,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{ "TICK_PARTICLES_PASS", "COMPUTE_PASS" }),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{ "TICK_PASS", "COMPUTE_PASS" }),
         });
 
         var stages = try ShaderStageManager.init(shader_stages.items);
@@ -862,15 +804,15 @@ pub const RendererState = struct {
         });
 
         if (initialized) {
-            self.pipelines.spawn_particles.deinit(device);
+            self.pipelines.spawn_ants.deinit(device);
         }
-        self.pipelines.spawn_particles = try ComputePipeline.new(device, .{
-            .shader = self.stages.shaders.map.get("spawn_particles").?.code,
+        self.pipelines.spawn_ants = try ComputePipeline.new(device, .{
+            .shader = self.stages.shaders.map.get("spawn_ants").?.code,
             .desc_set_layouts = &.{desc_set.layout},
             .push_constant_ranges = &[_]vk.PushConstantRange{.{
                 .stage_flags = .{ .compute_bit = true },
                 .offset = 0,
-                .size = @sizeOf(ResourceManager.PushConstants),
+                .size = @sizeOf(ResourceManager.PushConstants.Compute),
             }},
         });
 
@@ -883,10 +825,10 @@ pub const RendererState = struct {
         });
 
         if (initialized) {
-            self.pipelines.particle_count.deinit(device);
+            self.pipelines.ant_count.deinit(device);
         }
-        self.pipelines.particle_count = try ComputePipeline.new(device, .{
-            .shader = self.stages.shaders.map.get("particle_count").?.code,
+        self.pipelines.ant_count = try ComputePipeline.new(device, .{
+            .shader = self.stages.shaders.map.get("ant_count").?.code,
             .desc_set_layouts = &.{desc_set.layout},
         });
 
@@ -899,33 +841,33 @@ pub const RendererState = struct {
             .push_constant_ranges = &[_]vk.PushConstantRange{.{
                 .stage_flags = .{ .compute_bit = true },
                 .offset = 0,
-                .size = @sizeOf(ResourceManager.PushConstants),
+                .size = @sizeOf(ResourceManager.PushConstants.Reduce),
             }},
         });
 
         if (initialized) {
-            self.pipelines.particle_binning.deinit(device);
+            self.pipelines.ant_binning.deinit(device);
         }
-        self.pipelines.particle_binning = try ComputePipeline.new(device, .{
-            .shader = self.stages.shaders.map.get("particle_binning").?.code,
+        self.pipelines.ant_binning = try ComputePipeline.new(device, .{
+            .shader = self.stages.shaders.map.get("ant_binning").?.code,
             .desc_set_layouts = &.{desc_set.layout},
             .push_constant_ranges = &[_]vk.PushConstantRange{.{
                 .stage_flags = .{ .compute_bit = true },
                 .offset = 0,
-                .size = @sizeOf(ResourceManager.PushConstants),
+                .size = @sizeOf(ResourceManager.PushConstants.Compute),
             }},
         });
 
         if (initialized) {
-            self.pipelines.tick_particles.deinit(device);
+            self.pipelines.tick_ants.deinit(device);
         }
-        self.pipelines.tick_particles = try ComputePipeline.new(device, .{
-            .shader = self.stages.shaders.map.get("tick_particles").?.code,
+        self.pipelines.tick_ants = try ComputePipeline.new(device, .{
+            .shader = self.stages.shaders.map.get("tick_ants").?.code,
             .desc_set_layouts = &.{desc_set.layout},
             .push_constant_ranges = &[_]vk.PushConstantRange{.{
                 .stage_flags = .{ .compute_bit = true },
                 .offset = 0,
-                .size = @sizeOf(ResourceManager.PushConstants),
+                .size = @sizeOf(ResourceManager.PushConstants.Compute),
             }},
         });
 
@@ -954,17 +896,17 @@ pub const RendererState = struct {
 
         try cmdbuf.begin(device);
 
-        // spawn particles
+        // spawn ants
         cmdbuf.bindCompute(device, .{
-            .pipeline = self.pipelines.spawn_particles,
+            .pipeline = self.pipelines.spawn_ants,
             .desc_set = self.descriptor_set.set,
         });
 
         // TODO: oof. don't use arena allocator. somehow retain this memory somewhere.
         {
-            const constants = try alloc.create(ResourceManager.PushConstants);
-            constants.* = .{ .seed = app_state.rng.random().int(i32) };
-            cmdbuf.push_constants(device, self.pipelines.spawn_particles.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+            const constants = try alloc.create(ResourceManager.PushConstants.Compute);
+            constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+            cmdbuf.push_constants(device, self.pipelines.spawn_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
         }
         cmdbuf.dispatch(device, .{ .x = 1 });
         cmdbuf.memBarrier(device, .{});
@@ -978,12 +920,12 @@ pub const RendererState = struct {
             cmdbuf.dispatch(device, .{ .x = math.divide_roof(cast(u32, app_state.params.bin_buf_size), 64) });
             cmdbuf.memBarrier(device, .{});
 
-            // count particles
+            // count ants
             cmdbuf.bindCompute(device, .{
-                .pipeline = self.pipelines.particle_count,
+                .pipeline = self.pipelines.ant_count,
                 .desc_set = self.descriptor_set.set,
             });
-            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.particle_count, 64) });
+            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
             cmdbuf.memBarrier(device, .{});
 
             // bin count prefix sum
@@ -995,8 +937,8 @@ pub const RendererState = struct {
                 });
 
                 {
-                    const constants = try alloc.create(ResourceManager.PushConstants);
-                    constants.* = .{ .reduce_step = reduce_step, .seed = app_state.rng.random().int(i32) };
+                    const constants = try alloc.create(ResourceManager.PushConstants.Reduce);
+                    constants.* = .{ .step = .{ .step = reduce_step }, .rand = .{ .seed = app_state.rng.random().int(i32) } };
                     cmdbuf.push_constants(device, self.pipelines.bin_prefix_sum.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
                 }
 
@@ -1012,30 +954,30 @@ pub const RendererState = struct {
                 std.mem.swap(DescriptorSet, &self.descriptor_set, &self.descriptor_set_back);
             }
 
-            // bin particles
+            // bin ants
             cmdbuf.bindCompute(device, .{
-                .pipeline = self.pipelines.particle_binning,
+                .pipeline = self.pipelines.ant_binning,
                 .desc_set = self.descriptor_set.set,
             });
             {
-                const constants = try alloc.create(ResourceManager.PushConstants);
-                constants.* = .{ .seed = app_state.rng.random().int(i32) };
-                cmdbuf.push_constants(device, self.pipelines.particle_binning.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+                const constants = try alloc.create(ResourceManager.PushConstants.Compute);
+                constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+                cmdbuf.push_constants(device, self.pipelines.ant_binning.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
             }
-            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.particle_count, 64) });
+            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
             cmdbuf.memBarrier(device, .{});
 
-            // tick particles
+            // tick ants
             cmdbuf.bindCompute(device, .{
-                .pipeline = self.pipelines.tick_particles,
+                .pipeline = self.pipelines.tick_ants,
                 .desc_set = self.descriptor_set.set,
             });
             {
-                const constants = try alloc.create(ResourceManager.PushConstants);
-                constants.* = .{ .seed = app_state.rng.random().int(i32) };
-                cmdbuf.push_constants(device, self.pipelines.tick_particles.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+                const constants = try alloc.create(ResourceManager.PushConstants.Compute);
+                constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+                cmdbuf.push_constants(device, self.pipelines.tick_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
             }
-            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.particle_count, 64) });
+            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
             cmdbuf.memBarrier(device, .{});
         }
 
@@ -1052,14 +994,14 @@ pub const RendererState = struct {
             device.cmdDraw(buf, 6, 1, 0, 0);
         }
 
-        // render particles
+        // render ants
         cmdbuf.draw_indirect(device, .{
             .pipeline = &self.pipelines.render,
             .desc_sets = &.{
                 self.descriptor_set.set,
             },
             .calls = .{
-                .buffer = app.resources.particles_draw_call_buf.buffer,
+                .buffer = app.resources.ants_draw_call_buf.buffer,
                 .count = 1,
                 .stride = @sizeOf(ResourceManager.DrawCall),
             },
@@ -1132,15 +1074,14 @@ pub const AppState = struct {
     focus: bool = false,
 
     randomize: struct {
-        particle_colors: bool = false,
-        particle_forces: bool = false,
-        particle_types: bool = false,
-        particle_attrs: bool = false,
+        ant_colors: bool = false,
+        ant_types: bool = false,
+        ant_attrs: bool = false,
     } = .{},
     steps_per_frame: u32 = 2,
-    max_particle_count: u32 = 100000,
-    max_particle_type_count: u32 = 10,
-    particle_type_count: u32 = 5,
+    max_ant_count: u32 = 100000,
+    max_ant_type_count: u32 = 10,
+    ant_type_count: u32 = 5,
     spawn_count: u32 = 15000,
     friction: f32 = 2.0,
     bin_size: i32 = 62,
@@ -1148,17 +1089,14 @@ pub const AppState = struct {
     requested_world_size: math.Vec3T(i32) = .{ .x = 1800, .y = 1200, .z = 13 },
     params: ResourceManager.Uniforms.Params = .{
         .spawn_count = 0,
-        .friction = 0,
 
         .bin_size = 0,
         .bin_buf_size = 0,
         .bin_buf_size_x = 0,
         .bin_buf_size_y = 0,
-        .bin_buf_size_z = 0,
 
         .world_size_x = 0,
         .world_size_y = 0,
-        .world_size_z = 0,
     },
     camera: ShaderUtils.Camera2D = .{ .eye = .{} },
 
@@ -1180,10 +1118,9 @@ pub const AppState = struct {
             .arena = std.heap.ArenaAllocator.init(allocator.*),
         };
 
-        this.randomize_particle_forces(app);
-        this.randomize_particle_colors(app);
-        this.randomize_particle_types(app);
-        this.randomize_particle_attrs(app);
+        this.randomize_ant_colors(app);
+        this.randomize_ant_types(app);
+        this.randomize_ant_attrs(app);
 
         return this;
     }
@@ -1202,50 +1139,31 @@ pub const AppState = struct {
         _ = self.cmdbuf_fuse.fuse();
     }
 
-    fn randomize_particle_forces(self: *@This(), app: *App) void {
-        const zrng = .{
-            .collision_strength = math.Rng.init(self.rng.random()).with2(.{ .min = 0.7, .max = 1 }),
-            .collision_radius = math.Rng.init(self.rng.random()).with2(.{ .min = 0.3, .max = 0.4 }),
-            .attraction_strength = math.Rng.init(self.rng.random()).with2(.{ .min = -0.3, .max = 1.0 }),
-            .attraction_radius = math.Rng.init(self.rng.random()).with2(.{ .min = 0.7, .max = 1 }),
-            .attraction_peak_dist_factor = math.Rng.init(self.rng.random()).with2(.{ .min = 0.6, .max = 0.7 }),
-        };
-        for (app.resources.particle_force_matrix) |*pf| {
-            pf.* = std.mem.zeroes(@TypeOf(pf.*));
-            inline for (@typeInfo(@TypeOf(pf.*)).@"struct".fields) |f| {
-                if (comptime @hasField(@TypeOf(zrng), f.name)) {
-                    @field(pf, f.name) = @field(zrng, f.name).next();
-                }
-            }
-        }
-
-        self.randomize.particle_forces = true;
-    }
-
-    fn randomize_particle_colors(self: *@This(), app: *App) void {
+    fn randomize_ant_colors(self: *@This(), app: *App) void {
         const zrng = .{
             .color = math.Rng.init(self.rng.random()).with2(.{ .min = 0.1, .max = 1.0 }),
-            .particle_scale = math.Rng.init(self.rng.random()).with2(.{ .min = 0.4, .max = 0.6 }),
+            .ant_scale = math.Rng.init(self.rng.random()).with2(.{ .min = 0.4, .max = 0.6 }),
         };
 
-        for (app.resources.particle_types) |*pt| {
+        for (app.resources.ant_types) |*pt| {
             pt.* = .{
                 .color = Vec3.random(&zrng.color).normalize().withw(1.0),
-                .particle_scale = zrng.particle_scale.next(),
+                .strength = 1,
+                .radius = 1,
             };
         }
 
-        self.randomize.particle_colors = true;
+        self.randomize.ant_colors = true;
     }
 
-    fn randomize_particle_types(self: *@This(), app: *App) void {
+    fn randomize_ant_types(self: *@This(), app: *App) void {
         _ = app;
-        self.randomize.particle_types = true;
+        self.randomize.ant_types = true;
     }
 
-    fn randomize_particle_attrs(self: *@This(), app: *App) void {
+    fn randomize_ant_attrs(self: *@This(), app: *App) void {
         _ = app;
-        self.randomize.particle_attrs = true;
+        self.randomize.ant_attrs = true;
     }
 
     pub fn tick(self: *@This(), engine: *Engine, app: *App) !void {
@@ -1405,18 +1323,11 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderInt("FPS cap", @ptrCast(&state.fps_cap), 5, 500);
         reset = c.ImGui_SliderInt("spawn count", @ptrCast(&state.spawn_count), 0, 10000) or reset;
         _ = c.ImGui_SliderFloat("zoom", @ptrCast(&state.params.zoom), 0.001, 2.0);
-        _ = c.ImGui_SliderInt("particle visual size", @ptrCast(&state.params.particle_visual_size), 1, 100);
-        _ = c.ImGui_SliderFloat("particle_z_shrinking_factor", @ptrCast(&state.params.particle_z_shrinking_factor), 0, 1);
-        _ = c.ImGui_SliderFloat("particle_z_blur_factor", @ptrCast(&state.params.particle_z_blur_factor), 0, 2);
-        _ = c.ImGui_SliderInt("particles type count", @ptrCast(&state.particle_type_count), 1, cast(i32, state.max_particle_type_count));
+        _ = c.ImGui_SliderInt("ants type count", @ptrCast(&state.ant_type_count), 1, cast(i32, state.max_ant_type_count));
         _ = c.ImGui_SliderInt("grid size", @ptrCast(&state.params.grid_size), 1, 100);
         _ = c.ImGui_SliderInt("bin size", @ptrCast(&state.bin_size), 4, 200);
         _ = c.ImGui_SliderInt("bin buf size z", @ptrCast(&state.requested_world_size.z), 0, state.bin_size * state.bin_buf_size_z_max);
         reset = c.ImGui_SliderFloat("friction", @ptrCast(&state.friction), 0.0, 5.0) or reset;
-        _ = c.ImGui_SliderFloat("entropy", @ptrCast(&state.params.entropy), 0.0, 1.0);
-        _ = c.ImGui_SliderFloat("collision_strength_scale", @ptrCast(&state.params.collision_strength_scale), 0, 200);
-        _ = c.ImGui_SliderFloat("attraction_strength_scale", @ptrCast(&state.params.attraction_strength_scale), 0, 200);
-        _ = c.ImGui_SliderFloat("max_attraction_factor", @ptrCast(&state.params.max_attraction_factor), 1, 200);
 
         var sim_speed = state.ticker.speed.perc;
         if (c.ImGui_SliderFloat("simulation_speed", @ptrCast(&sim_speed), 0.0, 5.0)) {
@@ -1430,53 +1341,33 @@ pub const GuiState = struct {
 
         c.ImGui_Text("scaled time: %.3f", state.ticker.scaled.time_f);
         c.ImGui_Text("physics acctime/step: %.3f", state.ticker.simulation.acctime_f / state.ticker.simulation.step_f);
-        c.ImGui_Text("particle count: %d", state.params.particle_count);
+        c.ImGui_Text("ant count: %d", state.params.ant_count);
 
         if (c.ImGui_Button("randomize")) {
-            state.randomize_particle_forces(app);
-            state.randomize_particle_colors(app);
-            state.randomize_particle_types(app);
-            state.randomize_particle_attrs(app);
+            state.randomize_ant_colors(app);
+            state.randomize_ant_types(app);
+            state.randomize_ant_attrs(app);
         }
 
-        if (c.ImGui_Button("randomize particle forces")) {
-            state.randomize_particle_forces(app);
-            state.randomize_particle_types(app);
+        if (c.ImGui_Button("randomize ant colors")) {
+            state.randomize_ant_colors(app);
         }
 
-        if (c.ImGui_Button("randomize particle colors")) {
-            state.randomize_particle_colors(app);
-        }
-
-        if (c.ImGui_Button("randomize particle attrs")) {
-            state.randomize_particle_attrs(app);
+        if (c.ImGui_Button("randomize ant attrs")) {
+            state.randomize_ant_attrs(app);
         }
 
         {
-            c.ImGui_PushID("particle_types");
+            c.ImGui_PushID("ant_types");
             defer c.ImGui_PopID();
 
-            c.ImGui_Text("Particles");
-            for (app.resources.particle_types[0..state.params.particle_type_count], 0..) |*pt, i| {
+            c.ImGui_Text("ants");
+            for (app.resources.ant_types[0..state.params.ant_type_count], 0..) |*pt, i| {
                 c.ImGui_PushIDInt(@intCast(i));
                 defer c.ImGui_PopID();
 
                 c.ImGui_Text("type: %d", i);
-                self.editParticleType(pt);
-            }
-        }
-        c.ImGui_Text(" ");
-        {
-            c.ImGui_PushID("particle_force_matrix");
-            defer c.ImGui_PopID();
-            c.ImGui_Text("Particle forces");
-            for (app.resources.particle_force_matrix[0 .. state.params.particle_type_count * state.params.particle_type_count], 0..) |*pf, i| {
-                c.ImGui_PushIDInt(@intCast(i));
-                defer c.ImGui_PopID();
-
-                c.ImGui_Text(" ");
-                c.ImGui_Text("type: %d vs %d", i / state.params.particle_type_count, i % state.params.particle_type_count);
-                self.editParticleForce(pf);
+                self.editantType(pt);
             }
         }
 
@@ -1486,16 +1377,7 @@ pub const GuiState = struct {
         }
     }
 
-    fn editParticleType(_: *@This(), e: *ResourceManager.ParticleType) void {
+    fn editantType(_: *@This(), e: *ResourceManager.AntType) void {
         _ = c.ImGui_ColorEdit4("color", e.color.as_buf().ptr, c.ImGuiColorEditFlags_AlphaBar | c.ImGuiColorEditFlags_Float);
-        _ = c.ImGui_SliderFloat("particle scale", &e.particle_scale, 0, 1);
-    }
-
-    fn editParticleForce(_: *@This(), e: *ResourceManager.ParticleForce) void {
-        _ = c.ImGui_SliderFloat("attraction_strength", &e.attraction_strength, -1, 1);
-        _ = c.ImGui_SliderFloat("attraction_radius", &e.attraction_radius, 0, 1);
-        _ = c.ImGui_SliderFloat("attraction_peak_dist_factor", &e.attraction_peak_dist_factor, 0, 1);
-        _ = c.ImGui_SliderFloat("collision_strength", &e.collision_strength, -1, 1);
-        _ = c.ImGui_SliderFloat("collision_radius", &e.collision_radius, 0, 1);
     }
 };
