@@ -1238,6 +1238,8 @@ pub const CheaderGenerator = struct {
 };
 
 pub const ShaderUtils = struct {
+    const vk = @import("vulkan");
+
     const Vec4 = math.Vec4;
     const Vec3 = math.Vec3;
     const Vec2 = math.Vec2;
@@ -1356,7 +1358,23 @@ pub const ShaderUtils = struct {
         }
 
         return shader_obj;
+    }
 
+    pub fn push_constant_ranges(constants: type, comptime stage: vk.ShaderStageFlags) [std.meta.fields(constants).len]vk.PushConstantRange {
+        comptime {
+            const fields = @typeInfo(constants).@"struct".fields;
+            var range_arr: [fields.len]vk.PushConstantRange = undefined;
+            var offset: u32 = 0;
+            for (fields, 0..) |field, i| {
+                range_arr[i] = .{
+                    .stage_flags = stage,
+                    .offset = offset,
+                    .size = @sizeOf(field.type),
+                };
+                offset += @sizeOf(field.type);
+            }
+            return range_arr;
+        }
     }
 
     pub const GlslBindingGenerator = struct {
