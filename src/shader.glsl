@@ -189,8 +189,7 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
         ant_entropy += sqrt(p.exposure) * 0.0001;
         ant_entropy += float(p.age > 1000.0) * 0.0003;
         ant_entropy *= ubo.params.entropy;
-        ant_entropy *= 100.0;
-        ant_entropy *= ubo.params.delta;
+        ant_entropy *= ubo.params.delta * 100.0;
 
         bool killed = false;
         if (ant_entropy > random()) {
@@ -226,20 +225,18 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
             return;
         }
 
-        // 2 ways to compute forces
-        //  - first is to compute and store forces on ants in 1 pass and update vel, pos in another
-        //    - it's possible to have different radius for forces, and check only the bins that would actually matter.
-        //    - less friendly to gpus cuz different cores in a warp need different amounts of compute.
-        //  - second is to assume a max influence distance and check all in the range.
-        //    - if we have a max radius to forces, we end up wasting some checks when (max radius across all types >> max radius for 1 type)
+        ivec2 world = ivec2(ubo.params.world_size_x, ubo.params.world_size_y);
+        ivec2 bworld = ivec2(ubo.params.bin_buf_size_x, ubo.params.bin_buf_size_y);
 
         Ant p = ants_back[id];
         // AntType pt = ant_types[p.type_index];
 
-        // ivec2 bpos = ivec2(p.pos / ubo.params.bin_size);
-        // ivec2 bworld = ivec2(ubo.params.bin_buf_size_x, ubo.params.bin_buf_size_y);
+        ivec2 bpos = ivec2(p.pos / ubo.params.bin_size);
 
-        ivec2 world = ivec2(ubo.params.world_size_x, ubo.params.world_size_y);
+        for (int y = -1; y <= 1; y++) {
+            for (int x = -1; x <= 1; x++) {
+            }
+        }
 
         // vec2 fattract = vec2(0.0);
         // vec2 fcollide = vec2(0.0);
@@ -299,8 +296,11 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
         // fattract *= pow(flen, 0.83) / max(flen, 1);
         // fattract *= min(flen, ubo.params.max_attraction_factor * ubo.params.attraction_strength_scale)/max(flen, 1);
 
+        int index = int(p.pos.y) * world.x + int(p.pos.x);
+        pheromones_back[index] = 0.0;
+
         // vec2 pforce = fcollide + fattract;
-        p.vel *= ubo.params.friction;
+        // p.vel *= ubo.params.friction;
         // p.vel += pforce * ubo.params.delta;
         p.pos += p.vel * ubo.params.delta;
 
@@ -310,6 +310,8 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
 
         // prevents position blow up
         p.pos = clamp(p.pos, vec2(0.0), world);
+
+        pheromones[index] = 0.0;
 
         p.age += 1.0;
         // p.exposure = exposure;
@@ -377,6 +379,26 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
 #ifdef RENDER_PHEROMONES_FRAG_PASS
     layout(location = 0) out vec4 fcolor;
     void main() {
+        float grid_size = ubo.params.grid_size;
+        float zoom = ubo.params.zoom;
+        vec2 eye = ubo.camera.eye.xy;
+        vec2 mres = vec2(ubo.frame.monitor_width, ubo.frame.monitor_height);
+        vec2 wres = vec2(ubo.frame.width, ubo.frame.height);
+        ivec2 world = ivec2(ubo.params.world_size_x, ubo.params.world_size_y);
+
+        vec2 coord = gl_FragCoord.xy;
+        coord -= wres / 2.0;
+        coord /= zoom;
+        coord += vec2(world) / 2.0; coord -= eye;
+
+        int index = int(coord.y) * world.x + int(coord.x);
+        if (coord.x > 0 && coord.y > 0 && coord.x < world.x && coord.y < world.y && index >=0 && index < world.x * world.y) {
+            f32 val = pheromones[index];
+
+            fcolor = vec4(vec3(val), 1.0);
+        } else {
+            fcolor = vec4(0.0);
+        }
     }
 #endif // RENDER_PHEROMONES_FRAG_PASS
 
@@ -419,6 +441,7 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
         float distanceFromCenter = length(vuv.xy - 0.5);
         float mask = 1.0 - smoothstep(0.5 - 0.5/zoom, 0.5, distanceFromCenter);
         // mask = pow(1.0 - distanceFromCenter, 4.5) * mask;
+        // mask = 0;
         fcolor = vec4(vcolor.xyz, vcolor.a * mask);
     }
 #endif // RENDER_ANTS_FRAG_PASS

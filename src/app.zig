@@ -909,6 +909,16 @@ pub const RendererState = struct {
             },
             .cull_mode = .{},
             .render_mode = .solid_triangles,
+            .alpha_blend = .{
+                .blend_enable = vk.TRUE,
+                .src_color_blend_factor = .src_alpha,
+                .dst_color_blend_factor = .one,
+                .color_blend_op = .add,
+                .src_alpha_blend_factor = .one,
+                .dst_alpha_blend_factor = .zero,
+                .alpha_blend_op = .add,
+                .color_write_mask = .{ .r_bit = true, .g_bit = true, .b_bit = true, .a_bit = true },
+            },
         });
 
         if (initialized) {
@@ -1282,7 +1292,7 @@ pub const AppState = struct {
     friction: f32 = 2.0,
     bin_size: i32 = 62,
     bin_buf_size_z_max: i32 = 5,
-    requested_world_size: math.Vec3T(i32) = .{ .x = 1800, .y = 1200, .z = 13 },
+    requested_world_size: math.Vec2T(i32) = .{ .x = 1800, .y = 1200 },
     params: ResourceManager.Uniforms.Params = .{
         .spawn_count = 0,
 
@@ -1522,7 +1532,6 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderInt("ants type count", @ptrCast(&state.ant_type_count), 1, cast(i32, state.max_ant_type_count));
         _ = c.ImGui_SliderInt("grid size", @ptrCast(&state.params.grid_size), 1, 100);
         _ = c.ImGui_SliderInt("bin size", @ptrCast(&state.bin_size), 4, 200);
-        _ = c.ImGui_SliderInt("bin buf size z", @ptrCast(&state.requested_world_size.z), 0, state.bin_size * state.bin_buf_size_z_max);
         _ = c.ImGui_SliderFloat("entropy", @ptrCast(&state.params.entropy), 0.0, 1.0);
         reset = c.ImGui_SliderFloat("friction", @ptrCast(&state.friction), 0.0, 5.0) or reset;
 
