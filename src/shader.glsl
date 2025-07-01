@@ -237,10 +237,28 @@ void set_seed(int id) {
         ivec2 bpos = ivec2(p.pos / ubo.params.bin_size);
 
         // TODO: find which direction to move in
-        for (int y = -1; y <= 1; y++) {
-            for (int x = -1; x <= 1; x++) {
+        int rad = 3;
+        vec2 pdir = vec2(0.0);
+        for (int y = -rad; y <= rad; y++) {
+            for (int x = -rad; x <= rad; x++) {
+                vec2 dir = vec2(x, y);
+                ivec2 pos = ivec2(p.pos) + ivec2(x, y);
+                pos = ivec2(pos.x % world.x, pos.y % world.y);
+
+                if (length(dir) > 0.0001) {
+                    dir /= length(dir);
+                }
+
+                pdir += dir * pheromones_back[pos.y * world.x + pos.x];
             }
         }
+        // f32 pdirlen = length(pdir);
+        // if (pdirlen > 0.0001) {
+        //     pdir /= pdirlen;
+        //     pdir *= min(500, pdirlen);
+        // } else {
+        //     pdir = vec2(0.0);
+        // }
 
         // vec2 fattract = vec2(0.0);
         // vec2 fcollide = vec2(0.0);
@@ -303,6 +321,13 @@ void set_seed(int id) {
         int index = int(p.pos.y) * world.x + int(p.pos.x);
         f32 pheromone = pheromones_back[index];
 
+        p.vel += pdir * ubo.params.delta * 2.0;
+        f32 vlen = length(p.vel);
+        if (vlen > 0.0001) {
+            p.vel /= vlen;
+            p.vel *= 100;
+        }
+
         // vec2 pforce = fcollide + fattract;
         // p.vel *= ubo.params.friction;
         // p.vel += pforce * ubo.params.delta;
@@ -315,7 +340,7 @@ void set_seed(int id) {
         // prevents position blow up
         p.pos = clamp(p.pos, vec2(0.0), world);
 
-        pheromones[index] = pheromone + 1.0;
+        pheromones[index] = pheromone + 4.0;
 
         p.age += 1.0;
         // p.exposure = exposure;
