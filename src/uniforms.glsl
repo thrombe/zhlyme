@@ -39,6 +39,7 @@
      int world_size_y;
      float pheromone_attraction_scale;
      float entropy;
+     float friction;
  };
 
  struct RandSeed {

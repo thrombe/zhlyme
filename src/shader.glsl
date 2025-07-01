@@ -66,15 +66,16 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
     DrawCall draw_call;
 };
 
-#ifndef BIN_PREFIX_SUM_PASS
-layout(push_constant) uniform PushConstantsUniform {
-    PushConstantsCompute push;
-};
+#ifdef BIN_PREFIX_SUM_PASS
+#else
+    layout(push_constant) uniform PushConstantsUniform {
+        PushConstantsCompute push;
+    };
 
-void set_seed(int id) {
-    seed = int(ubo.frame.frame) ^ id ^ floatBitsToInt(ubo.frame.time) ^ push.rand.seed;
-}
-#endif // BIN_PREFIX_SUM_PASS
+    void set_seed(int id) {
+        seed = int(ubo.frame.frame) ^ id ^ floatBitsToInt(ubo.frame.time) ^ push.rand.seed;
+    }
+#endif
 
 #ifdef SPAWN_PASS
     layout (local_size_x = 8, local_size_y = 8) in;
@@ -188,6 +189,8 @@ void set_seed(int id) {
         ant_entropy += sqrt(p.exposure) * 0.0001;
         ant_entropy += float(p.age > 1000.0) * 0.0003;
         ant_entropy *= ubo.params.entropy;
+        ant_entropy *= 100.0;
+        ant_entropy *= ubo.params.delta;
 
         bool killed = false;
         if (ant_entropy > random()) {
@@ -233,73 +236,73 @@ void set_seed(int id) {
         Ant p = ants_back[id];
         // AntType pt = ant_types[p.type_index];
 
-        ivec2 bpos = ivec2(p.pos / ubo.params.bin_size);
-        ivec2 bworld = ivec2(ubo.params.bin_buf_size_x, ubo.params.bin_buf_size_y);
+        // ivec2 bpos = ivec2(p.pos / ubo.params.bin_size);
+        // ivec2 bworld = ivec2(ubo.params.bin_buf_size_x, ubo.params.bin_buf_size_y);
 
         ivec2 world = ivec2(ubo.params.world_size_x, ubo.params.world_size_y);
 
-        vec2 fattract = vec2(0.0);
-        vec2 fcollide = vec2(0.0);
-        f32 exposure = 0.0;
-        for (int y = -1; y <= 1; y++) {
-            for (int x = -1; x <= 1; x++) {
-                ivec2 bpos = (ivec2(x, y) + bpos + bworld) % bworld;
-                int index = bpos.y * bworld.x + bpos.x;
-                int offset_start = ant_bins[index];
-                int offset_end = ant_bins[index + 1];
+        // vec2 fattract = vec2(0.0);
+        // vec2 fcollide = vec2(0.0);
+        // f32 exposure = 0.0;
+        // for (int y = -1; y <= 1; y++) {
+        //     for (int x = -1; x <= 1; x++) {
+        //         ivec2 bpos = (ivec2(x, y) + bpos + bworld) % bworld;
+        //         int index = bpos.y * bworld.x + bpos.x;
+        //         int offset_start = ant_bins[index];
+        //         int offset_end = ant_bins[index + 1];
 
-                for (int i = offset_start; i < offset_end; i++) {
-                    if (i == id) {
-                        continue;
-                    }
+        //         for (int i = offset_start; i < offset_end; i++) {
+        //             if (i == id) {
+        //                 continue;
+        //             }
 
-                    Ant o = ants_back[i];
-                    // AntType ot = ant_types[o.type_index];
+        //             Ant o = ants_back[i];
+        //             AntType ot = ant_types[o.type_index];
 
-                    // AntForce forces = ant_force_matrix[p.type_index * ubo.params.ant_type_count + o.type_index];
+        //             AntForce forces = ant_force_matrix[p.type_index * ubo.params.ant_type_count + o.type_index];
 
-                    // // Calculate wrapped distance
-                    // vec3 dir = o.pos - p.pos;
-                    // dir -= world * sign(dir) * vec3(greaterThanEqual(abs(dir), world * 0.5));
+        //             // Calculate wrapped distance
+        //             vec3 dir = o.pos - p.pos;
+        //             dir -= world * sign(dir) * vec3(greaterThanEqual(abs(dir), world * 0.5));
 
-                    // f32 dist = length(dir);
-                    // if (dist <= 0.0) {
-                    //     continue;
-                    // }
+        //             f32 dist = length(dir);
+        //             if (dist <= 0.0) {
+        //                 continue;
+        //             }
 
-                    // exposure += 1.0;
+        //             exposure += 1.0;
 
-                    // dir /= dist;
+        //             dir /= dist;
 
-                    // f32 bin_size = ubo.params.bin_size;
-                    // f32 collision_r = forces.collision_radius * bin_size;
-                    // f32 collision_s = forces.collision_strength * ubo.params.collision_strength_scale;
-                    // f32 attraction_r = forces.attraction_radius * bin_size;
-                    // f32 attraction_peak_r = mix(forces.collision_radius, forces.attraction_radius, forces.attraction_peak_dist_factor) * bin_size;
-                    // f32 attraction_s = forces.attraction_strength * ubo.params.attraction_strength_scale;
-                    // if (dist < collision_r) {
-                    //     fcollide -= collision_s * (1.0 - dist / collision_r) * dir;
-                    // } else if (dist < attraction_peak_r) {
-                    //     fattract += attraction_s * ((dist - collision_r) / (attraction_peak_r - collision_r)) * dir;
-                    // } else if (dist < attraction_r) {
-                    //     fattract += attraction_s * (1.0 - (dist - attraction_peak_r) / (attraction_r - attraction_peak_r)) * dir;
-                    // } else {
-                    //     exposure -= 1.0;
-                    // }
-                }
-            }
-        }
+        //             f32 bin_size = ubo.params.bin_size;
+        //             f32 collision_r = forces.collision_radius * bin_size;
+        //             f32 collision_s = forces.collision_strength * ubo.params.collision_strength_scale;
+        //             f32 attraction_r = forces.attraction_radius * bin_size;
+        //             f32 attraction_peak_r = mix(forces.collision_radius, forces.attraction_radius, forces.attraction_peak_dist_factor) * bin_size;
+        //             f32 attraction_s = forces.attraction_strength * ubo.params.attraction_strength_scale;
+        //             if (dist < collision_r) {
+        //                 fcollide -= collision_s * (1.0 - dist / collision_r) * dir;
+        //             } else if (dist < attraction_peak_r) {
+        //                 fattract += attraction_s * ((dist - collision_r) / (attraction_peak_r - collision_r)) * dir;
+        //             } else if (dist < attraction_r) {
+        //                 fattract += attraction_s * (1.0 - (dist - attraction_peak_r) / (attraction_r - attraction_peak_r)) * dir;
+        //             } else {
+        //                 exposure -= 1.0;
+        //             }
+        //         }
+        //     }
+        // }
 
-        f32 flen = length(fattract);
+        // f32 flen = length(fattract);
         // pforce *= flen / (flen + 1);
         // fattract *= 1.0/log(flen + 1);
         // fattract *= pow(flen, 0.83) / max(flen, 1);
         // fattract *= min(flen, ubo.params.max_attraction_factor * ubo.params.attraction_strength_scale)/max(flen, 1);
 
-        vec2 pforce = fcollide + fattract;
-        // p.vel *= ubo.params.friction;
+        // vec2 pforce = fcollide + fattract;
+        p.vel *= ubo.params.friction;
         // p.vel += pforce * ubo.params.delta;
-        // p.pos += p.vel * ubo.params.delta;
+        p.pos += p.vel * ubo.params.delta;
 
         // position wrapping
         p.pos += world * vec2(lessThan(p.pos, vec2(0)));
@@ -309,7 +312,7 @@ void set_seed(int id) {
         p.pos = clamp(p.pos, vec2(0.0), world);
 
         p.age += 1.0;
-        p.exposure = exposure;
+        // p.exposure = exposure;
 
         ants[id] = p;
     }
@@ -380,47 +383,42 @@ void set_seed(int id) {
 #ifdef RENDER_ANTS_VERT_PASS
     layout(location = 0) out vec4 vcolor;
     layout(location = 1) out vec2 vuv;
-    layout(location = 2) out f32 z_factor;
     void main() {
-        // int ant_index = gl_VertexIndex / 6;
-        // int vert_index = gl_VertexIndex % 6;
+        int ant_index = gl_VertexIndex / 6;
+        int vert_index = gl_VertexIndex % 6;
 
-        // Ant p = ants[ant_index];
-        // AntType t = ant_types[p.type_index];
-        // vec2 vpos = quad_verts[vert_index].xy;
+        Ant p = ants[ant_index];
+        AntType t = ant_types[p.type_index];
+        vec2 vpos = quad_verts[vert_index].xy;
 
-        // float zoom = ubo.params.zoom;
+        float zoom = ubo.params.zoom;
         // float ant_size = t.ant_scale * ubo.params.ant_visual_size;
-        // vec2 mres = vec2(ubo.frame.monitor_width, ubo.frame.monitor_height);
-        // vec2 wres = vec2(ubo.frame.width, ubo.frame.height);
+        float ant_size = 4;
+        vec2 mres = vec2(ubo.frame.monitor_width, ubo.frame.monitor_height);
+        vec2 wres = vec2(ubo.frame.width, ubo.frame.height);
 
-        // z_factor = abs(p.pos.z - ubo.params.world_size_z * 0.5) / max(ubo.params.world_size_z * 0.5, 1);
-        // f32 z_shrink = (1.0 - ubo.params.ant_z_shrinking_factor) + z_factor * ubo.params.ant_z_shrinking_factor;
-        // z_shrink = clamp(z_shrink, 0, 1);
+        vec2 pos = p.pos.xy + ubo.camera.eye.xy - vec2(float(ubo.params.world_size_x), float(ubo.params.world_size_y)) * 0.5;
+        pos += vpos * 0.5 * ant_size;
+        pos /= mres; // world space to 0..1
+        pos *= mres/wres; // 0..1 scaled wrt window size
+        pos *= zoom;
+        pos *= 2.0;
+        gl_Position = vec4(pos, 0.0, 1.0);
 
-        // vec2 pos = p.pos.xy + ubo.camera.eye.xy - vec2(float(ubo.params.world_size_x), float(ubo.params.world_size_y)) * 0.5;
-        // pos += vpos * 0.5 * ant_size * z_shrink;
-        // pos /= mres; // world space to 0..1
-        // pos *= mres/wres; // 0..1 scaled wrt window size
-        // pos *= zoom;
-        // pos *= 2.0;
-        // gl_Position = vec4(pos, 0.0, 1.0);
-
-        // vcolor = t.color;
-        // vuv = quad_uvs[vert_index];
+        vcolor = t.color;
+        vuv = quad_uvs[vert_index];
     }
 #endif // RENDER_ANTS_VERT_PASS
 
 #ifdef RENDER_ANTS_FRAG_PASS
     layout(location = 0) in vec4 vcolor;
     layout(location = 1) in vec2 vuv;
-    layout(location = 2) in f32 z_factor;
     layout(location = 0) out vec4 fcolor;
     void main() {
-        // float zoom = ubo.params.zoom;
-        // float distanceFromCenter = length(vuv.xy - 0.5);
-        // float mask = 1.0 - smoothstep(0.5 - z_factor * ubo.params.ant_z_blur_factor - 0.1/zoom, 0.5, distanceFromCenter);
-        // // mask = pow(1.0 - distanceFromCenter, 4.5) * mask;
-        // fcolor = vec4(vcolor.xyz, vcolor.a * mask * (0.4 +  0.6 * (1.0 - z_factor)));
+        float zoom = ubo.params.zoom;
+        float distanceFromCenter = length(vuv.xy - 0.5);
+        float mask = 1.0 - smoothstep(0.5 - 0.5/zoom, 0.5, distanceFromCenter);
+        // mask = pow(1.0 - distanceFromCenter, 4.5) * mask;
+        fcolor = vec4(vcolor.xyz, vcolor.a * mask);
     }
 #endif // RENDER_ANTS_FRAG_PASS

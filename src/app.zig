@@ -545,6 +545,7 @@ pub const ResourceManager = struct {
 
             pheromone_attraction_scale: f32 = 1.0,
             entropy: f32 = 0.1,
+            friction: f32 = 0,
         };
 
         fn from(
@@ -561,6 +562,7 @@ pub const ResourceManager = struct {
             const ant_count = state.params.ant_count;
             state.params.ant_count = @min(ant_count + spawn_count, state.max_ant_count);
             state.params.spawn_count = state.params.ant_count - ant_count;
+            state.params.friction = @exp(-state.friction * state.params.delta);
             state.params.ant_type_count = state.ant_type_count;
             state.params.randomize_ant_types = @intCast(@intFromBool(state.randomize.ant_types));
             state.params.randomize_ant_attrs = @intCast(@intFromBool(state.randomize.ant_attrs));
@@ -1521,6 +1523,7 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderInt("grid size", @ptrCast(&state.params.grid_size), 1, 100);
         _ = c.ImGui_SliderInt("bin size", @ptrCast(&state.bin_size), 4, 200);
         _ = c.ImGui_SliderInt("bin buf size z", @ptrCast(&state.requested_world_size.z), 0, state.bin_size * state.bin_buf_size_z_max);
+        _ = c.ImGui_SliderFloat("entropy", @ptrCast(&state.params.entropy), 0.0, 1.0);
         reset = c.ImGui_SliderFloat("friction", @ptrCast(&state.friction), 0.0, 5.0) or reset;
 
         var sim_speed = state.ticker.speed.perc;
