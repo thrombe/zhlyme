@@ -1255,7 +1255,7 @@ pub const CmdBuffer = struct {
     }) void {
         for (self.bufs) |cmdbuf| {
             device.cmdBindPipeline(cmdbuf, .compute, v.pipeline.pipeline);
-            device.cmdBindDescriptorSets(cmdbuf, .compute, v.pipeline.layout, 0, @intCast(v.desc_sets.len), @ptrCast(&v.desc_sets.ptr), 0, null);
+            device.cmdBindDescriptorSets(cmdbuf, .compute, v.pipeline.layout, 0, @intCast(v.desc_sets.len), v.desc_sets.ptr, 0, null);
         }
     }
 
