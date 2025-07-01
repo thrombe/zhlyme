@@ -77,7 +77,7 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
     }
 #endif
 
-#ifdef SPAWN_PASS
+#ifdef SPAWN_ANTS_PASS
     layout (local_size_x = 8, local_size_y = 8) in;
     void main() {
         int id = global_id;
@@ -104,7 +104,7 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
         p.type_index = clamp(int(random() * ubo.params.ant_type_count), 0, ubo.params.ant_type_count - 1);
         ants[index] = p;
     }
-#endif // SPAWN_PASS
+#endif // SPAWN_ANTS_PASS
 
 #ifdef BIN_RESET_PASS
     layout (local_size_x = 8, local_size_y = 8) in;
@@ -125,7 +125,7 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
     }
 #endif // BIN_RESET_PASS
 
-#ifdef COUNT_PASS
+#ifdef COUNT_ANTS_PASS
     layout (local_size_x = 8, local_size_y = 8) in;
     void main() {
         int id = global_id;
@@ -141,7 +141,7 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
 
         int _count = atomicAdd(ant_bins_back[index], 1);
     }
-#endif // COUNT_PASS
+#endif // COUNT_ANTS_PASS
 
 #ifdef BIN_PREFIX_SUM_PASS
     layout(push_constant) uniform PushConstantsReduce_ {
@@ -169,7 +169,7 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
     }
 #endif // BIN_PREFIX_SUM_PASS
 
-#ifdef BINNING_PASS
+#ifdef BIN_ANTS_PASS
     layout (local_size_x = 8, local_size_y = 8) in;
     void main() {
         int id = global_id;
@@ -213,9 +213,9 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
 
         ants_back[bin_index - 1] = p;
     }
-#endif // BINNING_PASS
+#endif // BIN_ANTS_PASS
 
-#ifdef TICK_PASS
+#ifdef TICK_ANTS_PASS
     layout (local_size_x = 8, local_size_y = 8) in;
     void main() {
         int id = global_id;
@@ -233,6 +233,7 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
 
         ivec2 bpos = ivec2(p.pos / ubo.params.bin_size);
 
+        // TODO: find which direction to move in
         for (int y = -1; y <= 1; y++) {
             for (int x = -1; x <= 1; x++) {
             }
@@ -318,7 +319,19 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
 
         ants[id] = p;
     }
-#endif // TICK_PASS
+#endif // TICK_ANTS_PASS
+
+#ifdef SPREAD_PHEROMONES_PASS
+    layout (local_size_x = 8, local_size_y = 8) in;
+    void main() {
+        int id = global_id;
+
+        ivec2 world = ivec2(ubo.params.world_size_x, ubo.params.world_size_y);
+        if (id >= world.y * world.x) {
+            return;
+        }
+    }
+#endif // SPREAD_PHEROMONES_PASS
 
 #ifdef BG_VERT_PASS
     void main() {

@@ -630,6 +630,7 @@ pub const RendererState = struct {
         bin_prefix_sum: ComputePipeline,
         ant_binning: ComputePipeline,
         tick_ants: ComputePipeline,
+        spread_pheromones: ComputePipeline,
 
         fn deinit(self: *@This(), device: *Device) void {
             self.bg.deinit(device);
@@ -641,6 +642,7 @@ pub const RendererState = struct {
             self.bin_prefix_sum.deinit(device);
             self.ant_binning.deinit(device);
             self.tick_ants.deinit(device);
+            self.spread_pheromones.deinit(device);
         }
     };
 
@@ -714,7 +716,7 @@ pub const RendererState = struct {
             .stage = .compute,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{ "SPAWN_PASS", "COMPUTE_PASS" }),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{ "SPAWN_ANTS_PASS", "COMPUTE_PASS" }),
         });
         try shader_stages.append(.{
             .name = "bin_reset",
@@ -728,7 +730,7 @@ pub const RendererState = struct {
             .stage = .compute,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{ "COUNT_PASS", "COMPUTE_PASS" }),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{ "COUNT_ANTS_PASS", "COMPUTE_PASS" }),
         });
         try shader_stages.append(.{
             .name = "bin_prefix_sum",
@@ -742,14 +744,21 @@ pub const RendererState = struct {
             .stage = .compute,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{ "BINNING_PASS", "COMPUTE_PASS" }),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{ "BIN_ANTS_PASS", "COMPUTE_PASS" }),
         });
         try shader_stages.append(.{
             .name = "tick_ants",
             .stage = .compute,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{ "TICK_PASS", "COMPUTE_PASS" }),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{ "TICK_ANTS_PASS", "COMPUTE_PASS" }),
+        });
+        try shader_stages.append(.{
+            .name = "spread_pheromones",
+            .stage = .compute,
+            .path = "src/shader.glsl",
+            .include = includes,
+            .define = try alloc.dupe([]const u8, &[_][]const u8{ "SPREAD_PHEROMONES_PASS", "COMPUTE_PASS" }),
         });
 
         var stages = try ShaderStageManager.init(shader_stages.items);
