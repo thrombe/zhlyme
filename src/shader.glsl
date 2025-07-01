@@ -301,7 +301,7 @@ void set_seed(int id) {
         // fattract *= min(flen, ubo.params.max_attraction_factor * ubo.params.attraction_strength_scale)/max(flen, 1);
 
         int index = int(p.pos.y) * world.x + int(p.pos.x);
-        pheromones_back[index] = 0.0;
+        f32 pheromone = pheromones_back[index];
 
         // vec2 pforce = fcollide + fattract;
         // p.vel *= ubo.params.friction;
@@ -315,7 +315,7 @@ void set_seed(int id) {
         // prevents position blow up
         p.pos = clamp(p.pos, vec2(0.0), world);
 
-        pheromones[index] = 0.0;
+        pheromones[index] = pheromone + 1.0;
 
         p.age += 1.0;
         // p.exposure = exposure;
@@ -327,12 +327,30 @@ void set_seed(int id) {
 #ifdef SPREAD_PHEROMONES_PASS
     layout (local_size_x = 8, local_size_y = 8) in;
     void main() {
-        int id = global_id;
+        ivec2 id = ivec2(gl_GlobalInvocationID.xy);
 
         ivec2 world = ivec2(ubo.params.world_size_x, ubo.params.world_size_y);
-        if (id >= world.y * world.x) {
+        if (id.x >= world.x || id.y >= world.y) {
             return;
         }
+
+        f32 acc = 0.0;
+        for (int t = -ubo.params.half_spread_max; t <= ubo.params.half_spread_max; t++) {
+            ivec2 pos = ivec2(0);
+
+            if (push.dimension == 0) {
+                pos = ivec2(id.x, (world.y + id.y + t) % world.y);
+            } else {
+                pos = ivec2((world.x + id.x + t) % world.x, id.y);
+            }
+
+            // TODO: maybe also bind 'pheromones_back' as an image and do the fancy texture sampling blur
+            acc += pheromones_back[pos.y * world.x + pos.x];
+        }
+        acc /= 1 + 2 * ubo.params.half_spread_max;
+        acc = max(0.0, acc - 0.003);
+
+        pheromones[id.y * world.x + id.x] = acc;
     }
 #endif // SPREAD_PHEROMONES_PASS
 
@@ -411,7 +429,7 @@ void set_seed(int id) {
         if (coord.x > 0 && coord.y > 0 && coord.x < world.x && coord.y < world.y && index >=0 && index < world.x * world.y) {
             f32 val = pheromones[index];
 
-            fcolor = vec4(vec3(val), 1.0);
+            fcolor = vec4(vec3(val/50.0), 1.0);
         } else {
             fcolor = vec4(0.0);
         }

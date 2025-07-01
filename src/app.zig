@@ -534,6 +534,7 @@ pub const ResourceManager = struct {
             pheromone_attraction_scale: f32 = 1.0,
             entropy: f32 = 0.1,
             friction: f32 = 0,
+            half_spread_max: i32 = 1,
         };
 
         fn from(
@@ -1049,8 +1050,6 @@ pub const RendererState = struct {
         const alloc = app_state.arena.allocator();
         // _ = alloc;
 
-        std.mem.swap(DescriptorSet, &self.pheromones_desc_set, &self.pheromones_flipped_desc_set);
-
         var cmdbuf = try CmdBuffer.init(device, .{
             .pool = app.command_pool,
             .size = self.swapchain.swap_images.len,
@@ -1165,6 +1164,48 @@ pub const RendererState = struct {
                 cmdbuf.push_constants(device, self.pipelines.tick_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
             }
             cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
+            cmdbuf.memBarrier(device, .{});
+
+            // spread pheromones in y
+            std.mem.swap(DescriptorSet, &self.pheromones_desc_set, &self.pheromones_flipped_desc_set);
+            cmdbuf.bindCompute(device, .{
+                .pipeline = self.pipelines.spread_pheromones,
+                .desc_sets = &.{
+                    self.render_desc_set.set,
+                    self.ant_bins_desc_set.set,
+                    self.pheromones_desc_set.set,
+                },
+            });
+            {
+                const constants = try alloc.create(ResourceManager.PushConstants.Blur);
+                constants.* = .{ .seed = app_state.rng.random().int(i32), .dimension = 0 };
+                cmdbuf.push_constants(device, self.pipelines.spread_pheromones.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+            }
+            cmdbuf.dispatch(device, .{
+                .x = math.divide_roof(cast(u32, app_state.params.world_size_x), 8),
+                .y = math.divide_roof(cast(u32, app_state.params.world_size_y), 8),
+            });
+            cmdbuf.memBarrier(device, .{});
+
+            // spread pheromones in x
+            std.mem.swap(DescriptorSet, &self.pheromones_desc_set, &self.pheromones_flipped_desc_set);
+            cmdbuf.bindCompute(device, .{
+                .pipeline = self.pipelines.spread_pheromones,
+                .desc_sets = &.{
+                    self.render_desc_set.set,
+                    self.ant_bins_desc_set.set,
+                    self.pheromones_desc_set.set,
+                },
+            });
+            {
+                const constants = try alloc.create(ResourceManager.PushConstants.Blur);
+                constants.* = .{ .seed = app_state.rng.random().int(i32), .dimension = 1 };
+                cmdbuf.push_constants(device, self.pipelines.spread_pheromones.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+            }
+            cmdbuf.dispatch(device, .{
+                .x = math.divide_roof(cast(u32, app_state.params.world_size_x), 8),
+                .y = math.divide_roof(cast(u32, app_state.params.world_size_y), 8),
+            });
             cmdbuf.memBarrier(device, .{});
         }
 
