@@ -279,6 +279,8 @@ pub const ResourceManager = struct {
     ants_buf: Buffer,
     ant_bins_back_buf: Buffer,
     ant_bins_buf: Buffer,
+    pheromone_back_buf: Buffer,
+    pheromone_buf: Buffer,
     // updated from gpu side
     ants_draw_call_buf: Buffer,
 
@@ -337,10 +339,22 @@ pub const ResourceManager = struct {
         errdefer ant_bins_back.deinit(device);
 
         var ant_bins = try Buffer.new(ctx, .{
-            .size = @sizeOf(i32) * (1 + res.width * res.height),
+            .size = @sizeOf(i32) * (1 + res.width * res.height) * 5,
             .usage = .{ .storage_buffer_bit = true },
         });
         errdefer ant_bins.deinit(device);
+
+        const world = .{ .width = @as(u32, 1500), .height = @as(u32, 1500) };
+        var pheromone_back_buf = try Buffer.new_initialized(ctx, .{
+            .size = @sizeOf(f32) * (world.width * world.height),
+            .usage = .{ .storage_buffer_bit = true },
+        }, std.mem.zeroes(f32), pool);
+        errdefer pheromone_back_buf.deinit(device);
+        var pheromone_buf = try Buffer.new_initialized(ctx, .{
+            .size = @sizeOf(f32) * (world.width * world.height),
+            .usage = .{ .storage_buffer_bit = true },
+        }, std.mem.zeroes(f32), pool);
+        errdefer pheromone_buf.deinit(device);
 
         var scratch = try Buffer.new(ctx, .{
             .size = 4 * 4 * 100,
@@ -365,6 +379,8 @@ pub const ResourceManager = struct {
             .ants_buf = ants,
             .ant_bins_back_buf = ant_bins_back,
             .ant_bins_buf = ant_bins,
+            .pheromone_back_buf = pheromone_back_buf,
+            .pheromone_buf = pheromone_buf,
         };
     }
 
@@ -378,32 +394,39 @@ pub const ResourceManager = struct {
         self.ants_buf.deinit(device);
         self.ant_bins_back_buf.deinit(device);
         self.ant_bins_buf.deinit(device);
+        self.pheromone_back_buf.deinit(device);
+        self.pheromone_buf.deinit(device);
     }
 
-    pub fn add_binds(self: *@This(), builder: *render_utils.DescriptorSet.Builder, builder_back: *render_utils.DescriptorSet.Builder) !void {
+    pub fn add_binds(self: *@This(), builders: struct {
+        render: *render_utils.DescriptorSet.Builder,
+        ant_bins: *render_utils.DescriptorSet.Builder,
+        ant_bins_flipped: *render_utils.DescriptorSet.Builder,
+        pheromones: *render_utils.DescriptorSet.Builder,
+        pheromones_flipped: *render_utils.DescriptorSet.Builder,
+    }) !void {
         const add_to_set = struct {
-            fn func(set_builder: @TypeOf(builder), buf: *Buffer, bind: UniformBinds) !void {
+            fn func(set_builder: *render_utils.DescriptorSet.Builder, buf: *Buffer, bind: UniformBinds) !void {
                 try set_builder.add(buf, bind.bind());
             }
         }.func;
 
-        try add_to_set(builder, &self.uniform_buf, .camera);
-        try add_to_set(builder, &self.ants_draw_call_buf, .ants_draw_call);
-        try add_to_set(builder, &self.scratch_buf, .scratch);
-        try add_to_set(builder, &self.ant_types_buf, .ant_types);
-        try add_to_set(builder, &self.ants_back_buf, .ants_back);
-        try add_to_set(builder, &self.ants_buf, .ants);
-        try add_to_set(builder, &self.ant_bins_back_buf, .ant_bins_back);
-        try add_to_set(builder, &self.ant_bins_buf, .ant_bins);
+        try add_to_set(builders.render, &self.uniform_buf, .camera);
+        try add_to_set(builders.render, &self.ants_draw_call_buf, .ants_draw_call);
+        try add_to_set(builders.render, &self.scratch_buf, .scratch);
+        try add_to_set(builders.render, &self.ant_types_buf, .ant_types);
+        try add_to_set(builders.render, &self.ants_back_buf, .ants_back);
+        try add_to_set(builders.render, &self.ants_buf, .ants);
 
-        try add_to_set(builder_back, &self.uniform_buf, .camera);
-        try add_to_set(builder_back, &self.ants_draw_call_buf, .ants_draw_call);
-        try add_to_set(builder_back, &self.scratch_buf, .scratch);
-        try add_to_set(builder_back, &self.ant_types_buf, .ant_types);
-        try add_to_set(builder_back, &self.ants_back_buf, .ants_back);
-        try add_to_set(builder_back, &self.ants_buf, .ants);
-        try add_to_set(builder_back, &self.ant_bins_buf, .ant_bins_back);
-        try add_to_set(builder_back, &self.ant_bins_back_buf, .ant_bins);
+        try add_to_set(builders.ant_bins, &self.ant_bins_back_buf, .ant_bins_back);
+        try add_to_set(builders.ant_bins, &self.ant_bins_buf, .ant_bins);
+        try add_to_set(builders.ant_bins_flipped, &self.ant_bins_back_buf, .ant_bins);
+        try add_to_set(builders.ant_bins_flipped, &self.ant_bins_buf, .ant_bins_back);
+
+        try add_to_set(builders.pheromones, &self.pheromone_back_buf, .pheromones_back);
+        try add_to_set(builders.pheromones, &self.pheromone_buf, .pheromones);
+        try add_to_set(builders.pheromones_flipped, &self.pheromone_back_buf, .pheromones);
+        try add_to_set(builders.pheromones_flipped, &self.pheromone_buf, .pheromones_back);
     }
 
     pub fn upload(self: *@This(), device: *Device) !void {
@@ -439,6 +462,8 @@ pub const ResourceManager = struct {
         ants,
         ant_bins_back,
         ant_bins,
+        pheromones_back,
+        pheromones,
 
         pub fn bind(self: @This()) u32 {
             return @intFromEnum(self);
@@ -575,8 +600,11 @@ pub const ResourceManager = struct {
 pub const RendererState = struct {
     swapchain: Swapchain,
     cmdbuffer: CmdBuffer,
-    descriptor_set: DescriptorSet,
-    descriptor_set_back: DescriptorSet,
+    render_desc_set: DescriptorSet,
+    ant_bins_desc_set: DescriptorSet,
+    ant_bins_flipped_desc_set: DescriptorSet,
+    pheromones_desc_set: DescriptorSet,
+    pheromones_flipped_desc_set: DescriptorSet,
 
     stages: ShaderStageManager,
     pipelines: Pipelines,
@@ -586,7 +614,8 @@ pub const RendererState = struct {
 
     const Pipelines = struct {
         bg: GraphicsPipeline,
-        render: GraphicsPipeline,
+        render_ants: GraphicsPipeline,
+        render_pheromones: GraphicsPipeline,
         spawn_ants: ComputePipeline,
         bin_reset: ComputePipeline,
         ant_count: ComputePipeline,
@@ -596,7 +625,8 @@ pub const RendererState = struct {
 
         fn deinit(self: *@This(), device: *Device) void {
             self.bg.deinit(device);
-            self.render.deinit(device);
+            self.render_ants.deinit(device);
+            self.render_pheromones.deinit(device);
             self.spawn_ants.deinit(device);
             self.bin_reset.deinit(device);
             self.ant_count.deinit(device);
@@ -643,18 +673,32 @@ pub const RendererState = struct {
             .define = try alloc.dupe([]const u8, &[_][]const u8{"BG_VERT_PASS"}),
         });
         try shader_stages.append(.{
-            .name = "render_frag",
+            .name = "render_ants_frag",
             .stage = .fragment,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{"RENDER_FRAG_PASS"}),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{"RENDER_ANTS_FRAG_PASS"}),
         });
         try shader_stages.append(.{
-            .name = "render_vert",
+            .name = "render_ants_vert",
             .stage = .vertex,
             .path = "src/shader.glsl",
             .include = includes,
-            .define = try alloc.dupe([]const u8, &[_][]const u8{"RENDER_VERT_PASS"}),
+            .define = try alloc.dupe([]const u8, &[_][]const u8{"RENDER_ANTS_VERT_PASS"}),
+        });
+        try shader_stages.append(.{
+            .name = "render_pheromones_frag",
+            .stage = .fragment,
+            .path = "src/shader.glsl",
+            .include = includes,
+            .define = try alloc.dupe([]const u8, &[_][]const u8{"RENDER_PHEROMONES_FRAG_PASS"}),
+        });
+        try shader_stages.append(.{
+            .name = "render_pheromones_vert",
+            .stage = .vertex,
+            .path = "src/shader.glsl",
+            .include = includes,
+            .define = try alloc.dupe([]const u8, &[_][]const u8{"RENDER_PHEROMONES_VERT_PASS"}),
         });
         try shader_stages.append(.{
             .name = "spawn_ants",
@@ -710,16 +754,22 @@ pub const RendererState = struct {
         var self: @This() = .{
             .stages = stages,
             .pipelines = undefined,
-            .descriptor_set = undefined,
-            .descriptor_set_back = undefined,
+            .render_desc_set = undefined,
+            .ant_bins_desc_set = undefined,
+            .ant_bins_flipped_desc_set = undefined,
+            .pheromones_desc_set = undefined,
+            .pheromones_flipped_desc_set = undefined,
             .swapchain = swapchain,
             .pool = app.command_pool,
             .cmdbuffer = undefined,
         };
 
         try self.create_pipelines(engine, app, false);
-        errdefer self.descriptor_set.deinit(device);
-        errdefer self.descriptor_set_back.deinit(device);
+        errdefer self.render_desc_set.deinit(device);
+        errdefer self.ant_bins_desc_set.deinit(device);
+        errdefer self.ant_bins_flipped_desc_set.deinit(device);
+        errdefer self.pheromones_desc_set.deinit(device);
+        errdefer self.pheromones_flipped_desc_set.deinit(device);
         errdefer self.pipelines.deinit(device);
 
         self.cmdbuffer = try self.create_cmdbuf(engine, app, app_state);
@@ -751,17 +801,39 @@ pub const RendererState = struct {
         const ctx = &engine.graphics;
         const device = &ctx.device;
 
-        var desc_set_builder = app.descriptor_pool.set_builder();
-        defer desc_set_builder.deinit();
-        var desc_set_builder_back = app.descriptor_pool.set_builder();
-        defer desc_set_builder_back.deinit();
+        var set_builders = .{
+            .render = app.descriptor_pool.set_builder(),
+            .ant_bins = app.descriptor_pool.set_builder(),
+            .ant_bins_flipped = app.descriptor_pool.set_builder(),
+            .pheromones = app.descriptor_pool.set_builder(),
+            .pheromones_flipped = app.descriptor_pool.set_builder(),
+        };
+        defer {
+            set_builders.render.deinit();
+            set_builders.ant_bins.deinit();
+            set_builders.ant_bins_flipped.deinit();
+            set_builders.pheromones.deinit();
+            set_builders.pheromones_flipped.deinit();
+        }
 
-        try app.resources.add_binds(&desc_set_builder, &desc_set_builder_back);
+        try app.resources.add_binds(.{
+            .render = &set_builders.render,
+            .ant_bins = &set_builders.ant_bins,
+            .ant_bins_flipped = &set_builders.ant_bins_flipped,
+            .pheromones = &set_builders.pheromones,
+            .pheromones_flipped = &set_builders.pheromones_flipped,
+        });
 
-        var desc_set = try desc_set_builder.build(device);
-        errdefer desc_set.deinit(device);
-        var desc_set_back = try desc_set_builder_back.build(device);
-        errdefer desc_set_back.deinit(device);
+        var render_desc_set = try set_builders.render.build(device);
+        errdefer render_desc_set.deinit(device);
+        var ant_bins_desc_set = try set_builders.ant_bins.build(device);
+        errdefer ant_bins_desc_set.deinit(device);
+        var ant_bins_flipped_desc_set = try set_builders.ant_bins_flipped.build(device);
+        errdefer ant_bins_flipped_desc_set.deinit(device);
+        var pheromones_desc_set = try set_builders.pheromones.build(device);
+        errdefer pheromones_desc_set.deinit(device);
+        var pheromones_flipped_desc_set = try set_builders.pheromones_flipped.build(device);
+        errdefer pheromones_flipped_desc_set.deinit(device);
 
         if (initialized) {
             self.pipelines.bg.deinit(device);
@@ -773,23 +845,29 @@ pub const RendererState = struct {
                 .image_format = app.screen_image.format,
                 .depth_format = app.depth_image.format,
             },
-            .desc_set_layouts = &.{desc_set.layout},
+            .desc_set_layouts = &.{
+                render_desc_set.layout,
+                ant_bins_desc_set.layout,
+                pheromones_desc_set.layout,
+            },
             .cull_mode = .{},
             .render_mode = .solid_triangles,
         });
 
         if (initialized) {
-            self.pipelines.render.deinit(device);
+            self.pipelines.render_ants.deinit(device);
         }
-        self.pipelines.render = try GraphicsPipeline.new(device, .{
-            .vert = self.stages.shaders.map.get("render_vert").?.code,
-            .frag = self.stages.shaders.map.get("render_frag").?.code,
+        self.pipelines.render_ants = try GraphicsPipeline.new(device, .{
+            .vert = self.stages.shaders.map.get("render_ants_vert").?.code,
+            .frag = self.stages.shaders.map.get("render_ants_frag").?.code,
             .dynamic_info = .{
                 .image_format = app.screen_image.format,
                 .depth_format = app.depth_image.format,
             },
             .desc_set_layouts = &.{
-                desc_set.layout,
+                render_desc_set.layout,
+                ant_bins_desc_set.layout,
+                pheromones_desc_set.layout,
             },
             .cull_mode = .{},
             .render_mode = .solid_triangles,
@@ -806,11 +884,34 @@ pub const RendererState = struct {
         });
 
         if (initialized) {
+            self.pipelines.render_pheromones.deinit(device);
+        }
+        self.pipelines.render_pheromones = try GraphicsPipeline.new(device, .{
+            .vert = self.stages.shaders.map.get("render_pheromones_vert").?.code,
+            .frag = self.stages.shaders.map.get("render_pheromones_frag").?.code,
+            .dynamic_info = .{
+                .image_format = app.screen_image.format,
+                .depth_format = app.depth_image.format,
+            },
+            .desc_set_layouts = &.{
+                render_desc_set.layout,
+                ant_bins_desc_set.layout,
+                pheromones_desc_set.layout,
+            },
+            .cull_mode = .{},
+            .render_mode = .solid_triangles,
+        });
+
+        if (initialized) {
             self.pipelines.spawn_ants.deinit(device);
         }
         self.pipelines.spawn_ants = try ComputePipeline.new(device, .{
             .shader = self.stages.shaders.map.get("spawn_ants").?.code,
-            .desc_set_layouts = &.{desc_set.layout},
+            .desc_set_layouts = &.{
+                render_desc_set.layout,
+                ant_bins_desc_set.layout,
+                pheromones_desc_set.layout,
+            },
             .push_constant_ranges = &[_]vk.PushConstantRange{.{
                 .stage_flags = .{ .compute_bit = true },
                 .offset = 0,
@@ -823,7 +924,11 @@ pub const RendererState = struct {
         }
         self.pipelines.bin_reset = try ComputePipeline.new(device, .{
             .shader = self.stages.shaders.map.get("bin_reset").?.code,
-            .desc_set_layouts = &.{desc_set.layout},
+            .desc_set_layouts = &.{
+                render_desc_set.layout,
+                ant_bins_desc_set.layout,
+                pheromones_desc_set.layout,
+            },
         });
 
         if (initialized) {
@@ -831,7 +936,11 @@ pub const RendererState = struct {
         }
         self.pipelines.ant_count = try ComputePipeline.new(device, .{
             .shader = self.stages.shaders.map.get("ant_count").?.code,
-            .desc_set_layouts = &.{desc_set.layout},
+            .desc_set_layouts = &.{
+                render_desc_set.layout,
+                ant_bins_desc_set.layout,
+                pheromones_desc_set.layout,
+            },
         });
 
         if (initialized) {
@@ -839,7 +948,11 @@ pub const RendererState = struct {
         }
         self.pipelines.bin_prefix_sum = try ComputePipeline.new(device, .{
             .shader = self.stages.shaders.map.get("bin_prefix_sum").?.code,
-            .desc_set_layouts = &.{desc_set.layout},
+            .desc_set_layouts = &.{
+                render_desc_set.layout,
+                ant_bins_desc_set.layout,
+                pheromones_desc_set.layout,
+            },
             .push_constant_ranges = &[_]vk.PushConstantRange{.{
                 .stage_flags = .{ .compute_bit = true },
                 .offset = 0,
@@ -852,7 +965,11 @@ pub const RendererState = struct {
         }
         self.pipelines.ant_binning = try ComputePipeline.new(device, .{
             .shader = self.stages.shaders.map.get("ant_binning").?.code,
-            .desc_set_layouts = &.{desc_set.layout},
+            .desc_set_layouts = &.{
+                render_desc_set.layout,
+                ant_bins_desc_set.layout,
+                pheromones_desc_set.layout,
+            },
             .push_constant_ranges = &[_]vk.PushConstantRange{.{
                 .stage_flags = .{ .compute_bit = true },
                 .offset = 0,
@@ -865,7 +982,11 @@ pub const RendererState = struct {
         }
         self.pipelines.tick_ants = try ComputePipeline.new(device, .{
             .shader = self.stages.shaders.map.get("tick_ants").?.code,
-            .desc_set_layouts = &.{desc_set.layout},
+            .desc_set_layouts = &.{
+                render_desc_set.layout,
+                ant_bins_desc_set.layout,
+                pheromones_desc_set.layout,
+            },
             .push_constant_ranges = &[_]vk.PushConstantRange{.{
                 .stage_flags = .{ .compute_bit = true },
                 .offset = 0,
@@ -874,11 +995,17 @@ pub const RendererState = struct {
         });
 
         if (initialized) {
-            self.descriptor_set.deinit(device);
-            self.descriptor_set_back.deinit(device);
+            self.render_desc_set.deinit(device);
+            self.ant_bins_desc_set.deinit(device);
+            self.ant_bins_flipped_desc_set.deinit(device);
+            self.pheromones_desc_set.deinit(device);
+            self.pheromones_flipped_desc_set.deinit(device);
         }
-        self.descriptor_set = desc_set;
-        self.descriptor_set_back = desc_set_back;
+        self.render_desc_set = render_desc_set;
+        self.ant_bins_desc_set = ant_bins_desc_set;
+        self.ant_bins_flipped_desc_set = ant_bins_flipped_desc_set;
+        self.pheromones_desc_set = pheromones_desc_set;
+        self.pheromones_flipped_desc_set = pheromones_flipped_desc_set;
     }
 
     pub fn create_cmdbuf(self: *@This(), engine: *Engine, app: *App, app_state: *AppState) !CmdBuffer {
@@ -886,9 +1013,9 @@ pub const RendererState = struct {
         const device = &ctx.device;
 
         const alloc = app_state.arena.allocator();
-        _ = alloc;
+        // _ = alloc;
 
-        // std.mem.swap(DescriptorSet, &self.descriptor_set, &self.descriptor_set_back);
+        std.mem.swap(DescriptorSet, &self.pheromones_desc_set, &self.pheromones_flipped_desc_set);
 
         var cmdbuf = try CmdBuffer.init(device, .{
             .pool = app.command_pool,
@@ -899,89 +1026,113 @@ pub const RendererState = struct {
         try cmdbuf.begin(device);
 
         // // spawn ants
-        // cmdbuf.bindCompute(device, .{
-        //     .pipeline = self.pipelines.spawn_ants,
-        //     .desc_set = self.descriptor_set.set,
-        // });
+        cmdbuf.bindCompute(device, .{
+            .pipeline = self.pipelines.spawn_ants,
+            .desc_sets = &.{
+                self.render_desc_set.set,
+                self.ant_bins_desc_set.set,
+                self.pheromones_desc_set.set,
+            },
+        });
 
-        // // TODO: oof. don't use arena allocator. somehow retain this memory somewhere.
-        // {
-        //     const constants = try alloc.create(ResourceManager.PushConstants.Compute);
-        //     constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
-        //     cmdbuf.push_constants(device, self.pipelines.spawn_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
-        // }
-        // cmdbuf.dispatch(device, .{ .x = 1 });
-        // cmdbuf.memBarrier(device, .{});
+        // TODO: oof. don't use arena allocator. somehow retain this memory somewhere.
+        {
+            const constants = try alloc.create(ResourceManager.PushConstants.Compute);
+            constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+            cmdbuf.push_constants(device, self.pipelines.spawn_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+        }
+        cmdbuf.dispatch(device, .{ .x = 1 });
+        cmdbuf.memBarrier(device, .{});
 
-        // for (0..app_state.steps_per_frame) |_| {
-        //     // bin reset
-        //     cmdbuf.bindCompute(device, .{
-        //         .pipeline = self.pipelines.bin_reset,
-        //         .desc_set = self.descriptor_set.set,
-        //     });
-        //     cmdbuf.dispatch(device, .{ .x = math.divide_roof(cast(u32, app_state.params.bin_buf_size), 64) });
-        //     cmdbuf.memBarrier(device, .{});
+        for (0..app_state.steps_per_frame) |_| {
+            // bin reset
+            cmdbuf.bindCompute(device, .{
+                .pipeline = self.pipelines.bin_reset,
+                .desc_sets = &.{
+                    self.render_desc_set.set,
+                    self.ant_bins_desc_set.set,
+                    self.pheromones_desc_set.set,
+                },
+            });
+            cmdbuf.dispatch(device, .{ .x = math.divide_roof(cast(u32, app_state.params.bin_buf_size), 64) });
+            cmdbuf.memBarrier(device, .{});
 
-        //     // count ants
-        //     cmdbuf.bindCompute(device, .{
-        //         .pipeline = self.pipelines.ant_count,
-        //         .desc_set = self.descriptor_set.set,
-        //     });
-        //     cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
-        //     cmdbuf.memBarrier(device, .{});
+            // count ants
+            cmdbuf.bindCompute(device, .{
+                .pipeline = self.pipelines.ant_count,
+                .desc_sets = &.{
+                    self.render_desc_set.set,
+                    self.ant_bins_desc_set.set,
+                    self.pheromones_desc_set.set,
+                },
+            });
+            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
+            cmdbuf.memBarrier(device, .{});
 
-        //     // bin count prefix sum
-        //     var reduce_step: u5 = 0;
-        //     while (true) : (reduce_step += 1) {
-        //         cmdbuf.bindCompute(device, .{
-        //             .pipeline = self.pipelines.bin_prefix_sum,
-        //             .desc_set = self.descriptor_set.set,
-        //         });
+            // bin count prefix sum
+            var reduce_step: u5 = 0;
+            while (true) : (reduce_step += 1) {
+                cmdbuf.bindCompute(device, .{
+                    .pipeline = self.pipelines.bin_prefix_sum,
+                    .desc_sets = &.{
+                        self.render_desc_set.set,
+                        self.ant_bins_desc_set.set,
+                        self.pheromones_desc_set.set,
+                    },
+                });
 
-        //         {
-        //             const constants = try alloc.create(ResourceManager.PushConstants.Reduce);
-        //             constants.* = .{ .step = .{ .step = reduce_step }, .rand = .{ .seed = app_state.rng.random().int(i32) } };
-        //             cmdbuf.push_constants(device, self.pipelines.bin_prefix_sum.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
-        //         }
+                {
+                    const constants = try alloc.create(ResourceManager.PushConstants.Reduce);
+                    constants.* = .{ .reduce = .{ .step = reduce_step }, .rand = .{ .seed = app_state.rng.random().int(i32) } };
+                    cmdbuf.push_constants(device, self.pipelines.bin_prefix_sum.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+                }
 
-        //         // 1 larger then the buffer to store capacities
-        //         cmdbuf.dispatch(device, .{ .x = math.divide_roof(cast(u32, app_state.params.bin_buf_size + 1), 64) });
-        //         cmdbuf.memBarrier(device, .{});
+                // 1 larger then the buffer to store capacities
+                cmdbuf.dispatch(device, .{ .x = math.divide_roof(cast(u32, app_state.params.bin_buf_size + 1), 64) });
+                cmdbuf.memBarrier(device, .{});
 
-        //         // std.debug.print("{any} {any}\n", .{ reduce_step, app_state.params.bin_buf_size - (@as(i32, 1) << reduce_step) });
-        //         if (app_state.params.bin_buf_size - (@as(i32, 1) << reduce_step) < 0) {
-        //             break;
-        //         }
+                // std.debug.print("{any} {any}\n", .{ reduce_step, app_state.params.bin_buf_size - (@as(i32, 1) << reduce_step) });
+                if (app_state.params.bin_buf_size - (@as(i32, 1) << reduce_step) < 0) {
+                    break;
+                }
 
-        //         std.mem.swap(DescriptorSet, &self.descriptor_set, &self.descriptor_set_back);
-        //     }
+                std.mem.swap(DescriptorSet, &self.ant_bins_desc_set, &self.ant_bins_flipped_desc_set);
+            }
 
-        //     // bin ants
-        //     cmdbuf.bindCompute(device, .{
-        //         .pipeline = self.pipelines.ant_binning,
-        //         .desc_set = self.descriptor_set.set,
-        //     });
-        //     {
-        //         const constants = try alloc.create(ResourceManager.PushConstants.Compute);
-        //         constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
-        //         cmdbuf.push_constants(device, self.pipelines.ant_binning.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
-        //     }
-        //     cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
-        //     cmdbuf.memBarrier(device, .{});
+            // bin ants
+            cmdbuf.bindCompute(device, .{
+                .pipeline = self.pipelines.ant_binning,
+                .desc_sets = &.{
+                    self.render_desc_set.set,
+                    self.ant_bins_desc_set.set,
+                    self.pheromones_desc_set.set,
+                },
+            });
+            {
+                const constants = try alloc.create(ResourceManager.PushConstants.Compute);
+                constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+                cmdbuf.push_constants(device, self.pipelines.ant_binning.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+            }
+            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
+            cmdbuf.memBarrier(device, .{});
 
-        //     // tick ants
-        //     cmdbuf.bindCompute(device, .{
-        //         .pipeline = self.pipelines.tick_ants,
-        //         .desc_set = self.descriptor_set.set,
-        //     });
-        //     {
-        //         const constants = try alloc.create(ResourceManager.PushConstants.Compute);
-        //         constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
-        //         cmdbuf.push_constants(device, self.pipelines.tick_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
-        //     }
-        //     cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
-        //     cmdbuf.memBarrier(device, .{});
-        // }
+            // tick ants
+            cmdbuf.bindCompute(device, .{
+                .pipeline = self.pipelines.tick_ants,
+                .desc_sets = &.{
+                    self.render_desc_set.set,
+                    self.ant_bins_desc_set.set,
+                    self.pheromones_desc_set.set,
+                },
+            });
+            {
+                const constants = try alloc.create(ResourceManager.PushConstants.Compute);
+                constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+                cmdbuf.push_constants(device, self.pipelines.tick_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
+            }
+            cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
+            cmdbuf.memBarrier(device, .{});
+        }
 
         cmdbuf.dynamic_render_begin(device, .{
             .image = app.screen_image.view,
@@ -989,25 +1140,56 @@ pub const RendererState = struct {
             .extent = engine.window.extent,
         });
 
-        // bg pass
         for (cmdbuf.bufs) |buf| {
+            const desc_sets = &[_]vk.DescriptorSet{
+                self.render_desc_set.set,
+                self.ant_bins_desc_set.set,
+                self.pheromones_desc_set.set,
+            };
+
+            // bg pass
             device.cmdBindPipeline(buf, .graphics, self.pipelines.bg.pipeline);
-            device.cmdBindDescriptorSets(buf, .graphics, self.pipelines.bg.layout, 0, 1, @ptrCast(&self.descriptor_set.set), 0, null);
+            device.cmdBindDescriptorSets(
+                buf,
+                .graphics,
+                self.pipelines.bg.layout,
+                0,
+                @intCast(desc_sets.len),
+                desc_sets.ptr,
+                0,
+                null,
+            );
+            device.cmdDraw(buf, 6, 1, 0, 0);
+
+            // render pheromones pass
+            device.cmdBindPipeline(buf, .graphics, self.pipelines.render_pheromones.pipeline);
+            device.cmdBindDescriptorSets(
+                buf,
+                .graphics,
+                self.pipelines.render_pheromones.layout,
+                0,
+                @intCast(desc_sets.len),
+                desc_sets.ptr,
+                0,
+                null,
+            );
             device.cmdDraw(buf, 6, 1, 0, 0);
         }
 
-        // // render ants
-        // cmdbuf.draw_indirect(device, .{
-        //     .pipeline = &self.pipelines.render,
-        //     .desc_sets = &.{
-        //         self.descriptor_set.set,
-        //     },
-        //     .calls = .{
-        //         .buffer = app.resources.ants_draw_call_buf.buffer,
-        //         .count = 1,
-        //         .stride = @sizeOf(ResourceManager.DrawCall),
-        //     },
-        // });
+        // render ants
+        cmdbuf.draw_indirect(device, .{
+            .pipeline = &self.pipelines.render_ants,
+            .desc_sets = &.{
+                self.render_desc_set.set,
+                self.ant_bins_desc_set.set,
+                self.pheromones_desc_set.set,
+            },
+            .calls = .{
+                .buffer = app.resources.ants_draw_call_buf.buffer,
+                .count = 1,
+                .stride = @sizeOf(ResourceManager.DrawCall),
+            },
+        });
 
         cmdbuf.dynamic_render_end(device);
         cmdbuf.draw_into_swapchain(device, .{
@@ -1028,8 +1210,11 @@ pub const RendererState = struct {
         defer self.swapchain.deinit(device);
         defer self.cmdbuffer.deinit(device);
 
-        defer self.descriptor_set.deinit(device);
-        defer self.descriptor_set_back.deinit(device);
+        defer self.render_desc_set.deinit(device);
+        defer self.ant_bins_desc_set.deinit(device);
+        defer self.ant_bins_flipped_desc_set.deinit(device);
+        defer self.pheromones_desc_set.deinit(device);
+        defer self.pheromones_flipped_desc_set.deinit(device);
 
         defer self.stages.deinit();
         defer self.pipelines.deinit(device);

@@ -1251,11 +1251,11 @@ pub const CmdBuffer = struct {
 
     pub fn bindCompute(self: *@This(), device: *Device, v: struct {
         pipeline: ComputePipeline,
-        desc_set: vk.DescriptorSet,
+        desc_sets: []const vk.DescriptorSet,
     }) void {
         for (self.bufs) |cmdbuf| {
             device.cmdBindPipeline(cmdbuf, .compute, v.pipeline.pipeline);
-            device.cmdBindDescriptorSets(cmdbuf, .compute, v.pipeline.layout, 0, 1, @ptrCast(&v.desc_set), 0, null);
+            device.cmdBindDescriptorSets(cmdbuf, .compute, v.pipeline.layout, 0, @intCast(v.desc_sets.len), @ptrCast(&v.desc_sets.ptr), 0, null);
         }
     }
 

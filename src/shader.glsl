@@ -56,6 +56,12 @@ layout(set = 0, binding = _bind_ant_bins_back) bufffer AntBinBackBuffer {
 layout(set = 0, binding = _bind_ant_bins) bufffer AntBinBuffer {
     int ant_bins[];
 };
+layout(set = 0, binding = _bind_pheromones_back) bufffer PheromoneBackBuffer {
+    f32 pheromones_back[];
+};
+layout(set = 0, binding = _bind_pheromones) bufffer PheromoneBuffer {
+    f32 pheromones[];
+};
 layout(set = 0, binding = _bind_ants_draw_call) bufffer AntsDrawCallBuffer {
     DrawCall draw_call;
 };
@@ -68,7 +74,7 @@ layout(push_constant) uniform PushConstantsUniform {
 void set_seed(int id) {
     seed = int(ubo.frame.frame) ^ id ^ floatBitsToInt(ubo.frame.time) ^ push.rand.seed;
 }
-#endif
+#endif // BIN_PREFIX_SUM_PASS
 
 #ifdef SPAWN_PASS
     layout (local_size_x = 8, local_size_y = 8) in;
@@ -309,54 +315,6 @@ void set_seed(int id) {
     }
 #endif // TICK_PASS
 
-#ifdef RENDER_VERT_PASS
-    layout(location = 0) out vec4 vcolor;
-    layout(location = 1) out vec2 vuv;
-    layout(location = 2) out f32 z_factor;
-    void main() {
-        // int ant_index = gl_VertexIndex / 6;
-        // int vert_index = gl_VertexIndex % 6;
-
-        // Ant p = ants[ant_index];
-        // AntType t = ant_types[p.type_index];
-        // vec2 vpos = quad_verts[vert_index].xy;
-
-        // float zoom = ubo.params.zoom;
-        // float ant_size = t.ant_scale * ubo.params.ant_visual_size;
-        // vec2 mres = vec2(ubo.frame.monitor_width, ubo.frame.monitor_height);
-        // vec2 wres = vec2(ubo.frame.width, ubo.frame.height);
-
-        // z_factor = abs(p.pos.z - ubo.params.world_size_z * 0.5) / max(ubo.params.world_size_z * 0.5, 1);
-        // f32 z_shrink = (1.0 - ubo.params.ant_z_shrinking_factor) + z_factor * ubo.params.ant_z_shrinking_factor;
-        // z_shrink = clamp(z_shrink, 0, 1);
-
-        // vec2 pos = p.pos.xy + ubo.camera.eye.xy - vec2(float(ubo.params.world_size_x), float(ubo.params.world_size_y)) * 0.5;
-        // pos += vpos * 0.5 * ant_size * z_shrink;
-        // pos /= mres; // world space to 0..1
-        // pos *= mres/wres; // 0..1 scaled wrt window size
-        // pos *= zoom;
-        // pos *= 2.0;
-        // gl_Position = vec4(pos, 0.0, 1.0);
-
-        // vcolor = t.color;
-        // vuv = quad_uvs[vert_index];
-    }
-#endif // RENDER_VERT_PASS
-
-#ifdef RENDER_FRAG_PASS
-    layout(location = 0) in vec4 vcolor;
-    layout(location = 1) in vec2 vuv;
-    layout(location = 2) in f32 z_factor;
-    layout(location = 0) out vec4 fcolor;
-    void main() {
-        // float zoom = ubo.params.zoom;
-        // float distanceFromCenter = length(vuv.xy - 0.5);
-        // float mask = 1.0 - smoothstep(0.5 - z_factor * ubo.params.ant_z_blur_factor - 0.1/zoom, 0.5, distanceFromCenter);
-        // // mask = pow(1.0 - distanceFromCenter, 4.5) * mask;
-        // fcolor = vec4(vcolor.xyz, vcolor.a * mask * (0.4 +  0.6 * (1.0 - z_factor)));
-    }
-#endif // RENDER_FRAG_PASS
-
 #ifdef BG_VERT_PASS
     void main() {
         vec3 pos = quad_verts[gl_VertexIndex];
@@ -402,3 +360,67 @@ void set_seed(int id) {
         fcolor = vec4(color, 1.0);
     }
 #endif // BG_FRAG_PASS
+
+#ifdef RENDER_PHEROMONES_VERT_PASS
+    void main() {
+        vec3 pos = quad_verts[gl_VertexIndex];
+
+        pos.z = 1.0 - 0.000001;
+
+        gl_Position = vec4(pos, 1.0);
+    }
+#endif // RENDER_PHEROMONES_VERT_PASS
+
+#ifdef RENDER_PHEROMONES_FRAG_PASS
+    layout(location = 0) out vec4 fcolor;
+    void main() {
+    }
+#endif // RENDER_PHEROMONES_FRAG_PASS
+
+#ifdef RENDER_ANTS_VERT_PASS
+    layout(location = 0) out vec4 vcolor;
+    layout(location = 1) out vec2 vuv;
+    layout(location = 2) out f32 z_factor;
+    void main() {
+        // int ant_index = gl_VertexIndex / 6;
+        // int vert_index = gl_VertexIndex % 6;
+
+        // Ant p = ants[ant_index];
+        // AntType t = ant_types[p.type_index];
+        // vec2 vpos = quad_verts[vert_index].xy;
+
+        // float zoom = ubo.params.zoom;
+        // float ant_size = t.ant_scale * ubo.params.ant_visual_size;
+        // vec2 mres = vec2(ubo.frame.monitor_width, ubo.frame.monitor_height);
+        // vec2 wres = vec2(ubo.frame.width, ubo.frame.height);
+
+        // z_factor = abs(p.pos.z - ubo.params.world_size_z * 0.5) / max(ubo.params.world_size_z * 0.5, 1);
+        // f32 z_shrink = (1.0 - ubo.params.ant_z_shrinking_factor) + z_factor * ubo.params.ant_z_shrinking_factor;
+        // z_shrink = clamp(z_shrink, 0, 1);
+
+        // vec2 pos = p.pos.xy + ubo.camera.eye.xy - vec2(float(ubo.params.world_size_x), float(ubo.params.world_size_y)) * 0.5;
+        // pos += vpos * 0.5 * ant_size * z_shrink;
+        // pos /= mres; // world space to 0..1
+        // pos *= mres/wres; // 0..1 scaled wrt window size
+        // pos *= zoom;
+        // pos *= 2.0;
+        // gl_Position = vec4(pos, 0.0, 1.0);
+
+        // vcolor = t.color;
+        // vuv = quad_uvs[vert_index];
+    }
+#endif // RENDER_ANTS_VERT_PASS
+
+#ifdef RENDER_ANTS_FRAG_PASS
+    layout(location = 0) in vec4 vcolor;
+    layout(location = 1) in vec2 vuv;
+    layout(location = 2) in f32 z_factor;
+    layout(location = 0) out vec4 fcolor;
+    void main() {
+        // float zoom = ubo.params.zoom;
+        // float distanceFromCenter = length(vuv.xy - 0.5);
+        // float mask = 1.0 - smoothstep(0.5 - z_factor * ubo.params.ant_z_blur_factor - 0.1/zoom, 0.5, distanceFromCenter);
+        // // mask = pow(1.0 - distanceFromCenter, 4.5) * mask;
+        // fcolor = vec4(vcolor.xyz, vcolor.a * mask * (0.4 +  0.6 * (1.0 - z_factor)));
+    }
+#endif // RENDER_ANTS_FRAG_PASS
