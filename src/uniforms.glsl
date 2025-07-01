@@ -91,6 +91,10 @@
      Params params;
  };
 
+ const int _set_render = 0;
+ const int _set_ant_bins = 1;
+ const int _set_pheromones = 2;
+
  const int _bind_camera = 0;
  const int _bind_ants_draw_call = 1;
  const int _bind_scratch = 2;
@@ -99,4 +103,6 @@
  const int _bind_ants = 5;
  const int _bind_ant_bins_back = 6;
  const int _bind_ant_bins = 7;
+ const int _bind_pheromones_back = 8;
+ const int _bind_pheromones = 9;
 

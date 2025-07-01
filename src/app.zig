@@ -453,6 +453,12 @@ pub const ResourceManager = struct {
         @memcpy(mem[0..buf.len], buf);
     }
 
+    pub const DescSets = enum(u32) {
+        render,
+        ant_bins,
+        pheromones,
+    };
+
     pub const UniformBinds = enum(u32) {
         camera,
         ants_draw_call,
@@ -653,6 +659,7 @@ pub const RendererState = struct {
         try gen.add_struct("PushConstantsCompute", ResourceManager.PushConstants.Compute);
         try gen.add_struct("PushConstantsReduce", ResourceManager.PushConstants.Reduce);
         try gen.add_struct("Uniforms", ResourceManager.Uniforms);
+        try gen.add_enum("_set", ResourceManager.DescSets);
         try gen.add_enum("_bind", ResourceManager.UniformBinds);
         try gen.dump_shader("src/uniforms.glsl");
 

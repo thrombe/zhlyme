@@ -35,34 +35,34 @@ vec2 quad_uvs[6] = vec2[6](
     #define bufffer readonly buffer
 #endif
 
-layout(set = 0, binding = _bind_camera) uniform Ubo {
+layout(set = _set_render, binding = _bind_camera) uniform Ubo {
     Uniforms ubo;
 };
-layout(set = 0, binding = _bind_scratch) bufffer ScratchBuffer {
+layout(set = _set_render, binding = _bind_scratch) bufffer ScratchBuffer {
     GpuState state;
 };
-layout(set = 0, binding = _bind_ant_types) bufffer AntTypeBuffer {
+layout(set = _set_render, binding = _bind_ant_types) bufffer AntTypeBuffer {
     AntType ant_types[];
 };
-layout(set = 0, binding = _bind_ants_back) bufffer AntBackBuffer {
+layout(set = _set_render, binding = _bind_ants_back) bufffer AntBackBuffer {
     Ant ants_back[];
 };
-layout(set = 0, binding = _bind_ants) bufffer AntBuffer {
+layout(set = _set_render, binding = _bind_ants) bufffer AntBuffer {
     Ant ants[];
 };
-layout(set = 0, binding = _bind_ant_bins_back) bufffer AntBinBackBuffer {
+layout(set = _set_ant_bins, binding = _bind_ant_bins_back) bufffer AntBinBackBuffer {
     int ant_bins_back[];
 };
-layout(set = 0, binding = _bind_ant_bins) bufffer AntBinBuffer {
+layout(set = _set_ant_bins, binding = _bind_ant_bins) bufffer AntBinBuffer {
     int ant_bins[];
 };
-layout(set = 0, binding = _bind_pheromones_back) bufffer PheromoneBackBuffer {
+layout(set = _set_pheromones, binding = _bind_pheromones_back) bufffer PheromoneBackBuffer {
     f32 pheromones_back[];
 };
-layout(set = 0, binding = _bind_pheromones) bufffer PheromoneBuffer {
+layout(set = _set_pheromones, binding = _bind_pheromones) bufffer PheromoneBuffer {
     f32 pheromones[];
 };
-layout(set = 0, binding = _bind_ants_draw_call) bufffer AntsDrawCallBuffer {
+layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBuffer {
     DrawCall draw_call;
 };
 
