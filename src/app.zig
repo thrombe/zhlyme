@@ -491,27 +491,15 @@ pub const ResourceManager = struct {
 
     pub const PushConstants = struct {
         pub const Reduce = struct {
-            rand: push_components.RandSeed,
-            reduce: push_components.ReduceStep,
+            seed: i32,
+            step: i32,
         };
         pub const Compute = struct {
-            rand: push_components.RandSeed,
+            seed: i32,
         };
-
-        pub const push_components = struct {
-            pub const RandSeed = struct {
-                seed: i32,
-
-                const range = vk.PushConstantRange{
-                    .stage_flags = .{ .compute_bit = true },
-                    .offset = 0,
-                    .size = @sizeOf(ResourceManager.PushConstants.Compute),
-                };
-            };
-
-            pub const ReduceStep = struct {
-                step: i32,
-            };
+        pub const Blur = struct {
+            seed: i32,
+            dimension: i32,
         };
     };
 
@@ -662,6 +650,7 @@ pub const RendererState = struct {
         try gen.add_struct("Params", ResourceManager.Uniforms.Params);
         try gen.add_struct("PushConstantsCompute", ResourceManager.PushConstants.Compute);
         try gen.add_struct("PushConstantsReduce", ResourceManager.PushConstants.Reduce);
+        try gen.add_struct("PushConstantsBlur", ResourceManager.PushConstants.Blur);
         try gen.add_struct("Uniforms", ResourceManager.Uniforms);
         try gen.add_enum("_set", ResourceManager.DescSets);
         try gen.add_enum("_bind", ResourceManager.UniformBinds);
@@ -1023,6 +1012,23 @@ pub const RendererState = struct {
         });
 
         if (initialized) {
+            self.pipelines.spread_pheromones.deinit(device);
+        }
+        self.pipelines.spread_pheromones = try ComputePipeline.new(device, .{
+            .shader = self.stages.shaders.map.get("spread_pheromones").?.code,
+            .desc_set_layouts = &.{
+                render_desc_set.layout,
+                ant_bins_desc_set.layout,
+                pheromones_desc_set.layout,
+            },
+            .push_constant_ranges = &[_]vk.PushConstantRange{.{
+                .stage_flags = .{ .compute_bit = true },
+                .offset = 0,
+                .size = @sizeOf(ResourceManager.PushConstants.Blur),
+            }},
+        });
+
+        if (initialized) {
             self.render_desc_set.deinit(device);
             self.ant_bins_desc_set.deinit(device);
             self.ant_bins_flipped_desc_set.deinit(device);
@@ -1066,7 +1072,7 @@ pub const RendererState = struct {
         // TODO: oof. don't use arena allocator. somehow retain this memory somewhere.
         {
             const constants = try alloc.create(ResourceManager.PushConstants.Compute);
-            constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+            constants.* = .{ .seed = app_state.rng.random().int(i32) };
             cmdbuf.push_constants(device, self.pipelines.spawn_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
         }
         cmdbuf.dispatch(device, .{ .x = 1 });
@@ -1111,7 +1117,7 @@ pub const RendererState = struct {
 
                 {
                     const constants = try alloc.create(ResourceManager.PushConstants.Reduce);
-                    constants.* = .{ .reduce = .{ .step = reduce_step }, .rand = .{ .seed = app_state.rng.random().int(i32) } };
+                    constants.* = .{ .step = reduce_step, .seed = app_state.rng.random().int(i32) };
                     cmdbuf.push_constants(device, self.pipelines.bin_prefix_sum.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
                 }
 
@@ -1138,7 +1144,7 @@ pub const RendererState = struct {
             });
             {
                 const constants = try alloc.create(ResourceManager.PushConstants.Compute);
-                constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+                constants.* = .{ .seed = app_state.rng.random().int(i32) };
                 cmdbuf.push_constants(device, self.pipelines.ant_binning.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
             }
             cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });
@@ -1155,7 +1161,7 @@ pub const RendererState = struct {
             });
             {
                 const constants = try alloc.create(ResourceManager.PushConstants.Compute);
-                constants.* = .{ .rand = .{ .seed = app_state.rng.random().int(i32) } };
+                constants.* = .{ .seed = app_state.rng.random().int(i32) };
                 cmdbuf.push_constants(device, self.pipelines.tick_ants.layout, std.mem.asBytes(constants), .{ .compute_bit = true });
             }
             cmdbuf.dispatch(device, .{ .x = math.divide_roof(app_state.params.ant_count, 64) });

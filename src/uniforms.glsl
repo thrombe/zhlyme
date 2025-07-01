@@ -40,23 +40,21 @@
      float pheromone_attraction_scale;
      float entropy;
      float friction;
- };
-
- struct RandSeed {
-     int seed;
+     int half_spread_max;
  };
 
  struct PushConstantsCompute {
-     RandSeed rand;
- };
-
- struct ReduceStep {
-     int step;
+     int seed;
  };
 
  struct PushConstantsReduce {
-     RandSeed rand;
-     ReduceStep reduce;
+     int seed;
+     int step;
+ };
+
+ struct PushConstantsBlur {
+     int seed;
+     int dimension;
  };
 
  struct Camera2DMeta {

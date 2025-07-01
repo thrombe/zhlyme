@@ -66,16 +66,23 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
     DrawCall draw_call;
 };
 
-#ifdef BIN_PREFIX_SUM_PASS
+#if defined(BIN_PREFIX_SUM_PASS)
+    layout(push_constant) uniform PushConstantsReduce_ {
+        PushConstantsReduce push;
+    };
+#elif defined(SPREAD_PHEROMONES_PASS)
+    layout(push_constant) uniform PushConstantsBlur_ {
+        PushConstantsBlur push;
+    };
 #else
-    layout(push_constant) uniform PushConstantsUniform {
+    layout(push_constant) uniform PushConstantsCompute_ {
         PushConstantsCompute push;
     };
-
-    void set_seed(int id) {
-        seed = int(ubo.frame.frame) ^ id ^ floatBitsToInt(ubo.frame.time) ^ push.rand.seed;
-    }
 #endif
+
+void set_seed(int id) {
+    seed = int(ubo.frame.frame) ^ id ^ floatBitsToInt(ubo.frame.time) ^ push.seed;
+}
 
 #ifdef SPAWN_ANTS_PASS
     layout (local_size_x = 8, local_size_y = 8) in;
@@ -144,10 +151,6 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
 #endif // COUNT_ANTS_PASS
 
 #ifdef BIN_PREFIX_SUM_PASS
-    layout(push_constant) uniform PushConstantsReduce_ {
-        PushConstantsReduce reduce_push;
-    };
-
     layout (local_size_x = 8, local_size_y = 8) in;
     void main() {
         int id = global_id;
@@ -157,7 +160,7 @@ layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBu
             return;
         }
 
-        int step = 1 << reduce_push.reduce.step;
+        int step = 1 << push.step;
         if (id >= step) {
             int a = ant_bins_back[id];
             int b = ant_bins_back[id - step];
