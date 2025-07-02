@@ -324,8 +324,6 @@ void set_seed(int id) {
                         continue;
                     }
 
-                    exposure += 1.0;
-
                     dir /= dist;
 
                     f32 bin_size = ubo.params.bin_size;
@@ -333,8 +331,7 @@ void set_seed(int id) {
                     f32 collision_s = ubo.params.collision_strength_scale * max(pt.collision_strength, ot.collision_strength);
                     if (dist < collision_r) {
                         fcollide -= collision_s * (1.0 - dist / collision_r) * dir;
-                    } else {
-                        exposure -= 1.0;
+                        exposure += 1.0;
                     }
                 }
             }
@@ -364,7 +361,7 @@ void set_seed(int id) {
         pheromones[index] = min(ubo.params.max_pheromone_strength, pheromone + pt.pheromone_strength);
 
         p.age += 1.0;
-        // p.exposure = exposure;
+        p.exposure = exposure;
 
         ants[id] = p;
     }
