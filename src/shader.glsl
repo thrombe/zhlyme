@@ -236,22 +236,6 @@ void set_seed(int id) {
 
         ivec2 bpos = ivec2(p.pos / ubo.params.bin_size);
 
-        // TODO: find which direction to move in
-        int rad = 3;
-        vec2 pdir = vec2(0.0);
-        for (int y = -rad; y <= rad; y++) {
-            for (int x = -rad; x <= rad; x++) {
-                vec2 dir = vec2(x, y);
-                ivec2 pos = ivec2(p.pos) + ivec2(x, y);
-                pos = ivec2(pos.x % world.x, pos.y % world.y);
-
-                if (length(dir) > 0.0001) {
-                    dir /= length(dir);
-                }
-
-                pdir += dir * pheromones_back[pos.y * world.x + pos.x];
-            }
-        }
         // f32 pdirlen = length(pdir);
         // if (pdirlen > 0.0001) {
         //     pdir /= pdirlen;
@@ -318,14 +302,34 @@ void set_seed(int id) {
         // fattract *= pow(flen, 0.83) / max(flen, 1);
         // fattract *= min(flen, ubo.params.max_attraction_factor * ubo.params.attraction_strength_scale)/max(flen, 1);
 
+        // TODO: find which direction to move in
+        int rad = 3;
+        vec2 pdir = vec2(0.0);
+        for (int y = -rad; y <= rad; y++) {
+            for (int x = -rad; x <= rad; x++) {
+                vec2 dir = vec2(x, y);
+                ivec2 pos = ivec2(p.pos) + ivec2(normalize(p.vel) * 3) + ivec2(x, y);
+                pos = ivec2(pos.x % world.x, pos.y % world.y);
+
+                if (length(dir) > 0.0001) {
+                    dir /= length(dir);
+                }
+
+                if (dot(p.vel, dir) >= 0.0) {
+                    pdir += dir * pheromones_back[pos.y * world.x + pos.x];
+                }
+            }
+        }
+
         int index = int(p.pos.y) * world.x + int(p.pos.x);
         f32 pheromone = pheromones_back[index];
 
-        p.vel += pdir * ubo.params.delta * 2.0;
+        p.vel += pdir * 20.0;
         f32 vlen = length(p.vel);
         if (vlen > 0.0001) {
             p.vel /= vlen;
-            p.vel *= 100;
+            p.vel += (vec2(random(), random()) - 0.5) * 0.3;
+            p.vel *= 80;
         }
 
         // vec2 pforce = fcollide + fattract;
@@ -334,13 +338,20 @@ void set_seed(int id) {
         p.pos += p.vel * ubo.params.delta;
 
         // position wrapping
-        p.pos += world * vec2(lessThan(p.pos, vec2(0)));
-        p.pos -= world * vec2(greaterThanEqual(p.pos, world));
+        // p.pos += world * vec2(lessThan(p.pos, vec2(0)));
+        // p.pos -= world * vec2(greaterThanEqual(p.pos, world));
+
+        if (p.pos.x < 0 || p.pos.x >= world.x) {
+            p.vel.x *= -1;
+        }
+        if (p.pos.y < 0 || p.pos.y >= world.y) {
+            p.vel.y *= -1;
+        }
 
         // prevents position blow up
         p.pos = clamp(p.pos, vec2(0.0), world);
 
-        pheromones[index] = pheromone + 4.0;
+        pheromones[index] = 1.0;
 
         p.age += 1.0;
         // p.exposure = exposure;
@@ -373,7 +384,17 @@ void set_seed(int id) {
             acc += pheromones_back[pos.y * world.x + pos.x];
         }
         acc /= 1 + 2 * ubo.params.half_spread_max;
-        acc = max(0.0, acc - 0.003);
+
+        f32 orig = pheromones_back[id.y * world.x + id.x];
+        // if (push.dimension == 0) {
+        // } else {
+            acc = mix(orig, acc, 8.0 * ubo.params.delta);
+        // }
+
+        if (push.dimension == 0) {
+        } else {
+            acc = max(0.0, acc - 0.3 * ubo.params.delta);
+        }
 
         pheromones[id.y * world.x + id.x] = acc;
     }
@@ -454,7 +475,7 @@ void set_seed(int id) {
         if (coord.x > 0 && coord.y > 0 && coord.x < world.x && coord.y < world.y && index >=0 && index < world.x * world.y) {
             f32 val = pheromones[index];
 
-            fcolor = vec4(vec3(val/50.0), 1.0);
+            fcolor = vec4(vec3(val/1.0), 1.0);
         } else {
             fcolor = vec4(0.0);
         }
