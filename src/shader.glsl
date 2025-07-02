@@ -510,8 +510,7 @@ void set_seed(int id) {
         vec2 vpos = quad_verts[vert_index].xy;
 
         float zoom = ubo.params.zoom;
-        // float ant_size = t.ant_scale * ubo.params.ant_visual_size;
-        float ant_size = 4;
+        float ant_size = t.visual_radius * ubo.params.visual_radius_scale;
         vec2 mres = vec2(ubo.frame.monitor_width, ubo.frame.monitor_height);
         vec2 wres = vec2(ubo.frame.width, ubo.frame.height);
 

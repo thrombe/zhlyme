@@ -518,7 +518,7 @@ pub const ResourceManager = struct {
 
             grid_size: u32,
             zoom: f32 = 1.0,
-            visual_radius_scale: f32 = 1.0,
+            visual_radius_scale: f32 = 4.0,
 
             randomize_ant_types: u32 = 0,
             randomize_ant_attrs: u32 = 0,
@@ -1598,6 +1598,7 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderFloat("zoom", @ptrCast(&state.params.zoom), 0.001, 2.0);
         _ = c.ImGui_SliderInt("ants type count", @ptrCast(&state.ant_type_count), 1, cast(i32, state.max_ant_type_count));
         _ = c.ImGui_SliderInt("grid size", @ptrCast(&state.params.grid_size), 1, 100);
+        _ = c.ImGui_SliderFloat("visual_radius_scale", @ptrCast(&state.params.visual_radius_scale), 0, 100);
         _ = c.ImGui_SliderInt("bin size", @ptrCast(&state.params.bin_size), 4, 200);
         _ = c.ImGui_SliderFloat("entropy", @ptrCast(&state.params.entropy), 0.0, 1.0);
         reset = c.ImGui_SliderFloat("friction", @ptrCast(&state.friction), 0.0, 5.0) or reset;
