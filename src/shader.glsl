@@ -308,11 +308,16 @@ void set_seed(int id) {
         for (int y = -rad; y <= rad; y++) {
             for (int x = -rad; x <= rad; x++) {
                 vec2 dir = vec2(x, y);
-                ivec2 pos = ivec2(p.pos) + ivec2(normalize(p.vel) * 3) + ivec2(x, y);
-                pos = ivec2(pos.x % world.x, pos.y % world.y);
+                ivec2 pos = ivec2(p.pos) + ivec2(normalize(p.vel) * 2) + ivec2(x, y);
+                // pos = ivec2(pos.x % world.x, pos.y % world.y);
 
                 if (length(dir) > 0.0001) {
                     dir /= length(dir);
+                }
+
+                if (pos.x < 0 || pos.x >= world.x || pos.y < 0 || pos.y >= world.y) {
+                    pdir -= dir;
+                    continue;
                 }
 
                 if (dot(p.vel, dir) >= 0.0) {
@@ -371,19 +376,27 @@ void set_seed(int id) {
         }
 
         f32 acc = 0.0;
+        f32 count = 0.0;
         for (int t = -ubo.params.half_spread_max; t <= ubo.params.half_spread_max; t++) {
             ivec2 pos = ivec2(0);
 
             if (push.dimension == 0) {
-                pos = ivec2(id.x, (world.y + id.y + t) % world.y);
+                // pos = ivec2(id.x, (world.y + id.y + t) % world.y);
+                pos = ivec2(id.x, id.y + t);
             } else {
-                pos = ivec2((world.x + id.x + t) % world.x, id.y);
+                // pos = ivec2((world.x + id.x + t) % world.x, id.y);
+                pos = ivec2(id.x + t, id.y);
+            }
+
+            if (pos.x < 0 || pos.x >= world.x || pos.y < 0 || pos.y >= world.y) {
+                continue;
             }
 
             // TODO: maybe also bind 'pheromones_back' as an image and do the fancy texture sampling blur
             acc += pheromones_back[pos.y * world.x + pos.x];
+            count += 1.0;
         }
-        acc /= 1 + 2 * ubo.params.half_spread_max;
+        acc /= count;
 
         f32 orig = pheromones_back[id.y * world.x + id.x];
         // if (push.dimension == 0) {
@@ -393,7 +406,7 @@ void set_seed(int id) {
 
         if (push.dimension == 0) {
         } else {
-            acc = max(0.0, acc - 0.3 * ubo.params.delta);
+            acc = max(0.0, acc - 0.0015);
         }
 
         pheromones[id.y * world.x + id.x] = acc;
@@ -475,7 +488,7 @@ void set_seed(int id) {
         if (coord.x > 0 && coord.y > 0 && coord.x < world.x && coord.y < world.y && index >=0 && index < world.x * world.y) {
             f32 val = pheromones[index];
 
-            fcolor = vec4(vec3(val/1.0), 1.0);
+            fcolor = vec4(vec3(val/2.0), 1.0);
         } else {
             fcolor = vec4(0.0);
         }
