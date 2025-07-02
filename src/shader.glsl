@@ -413,7 +413,7 @@ void set_seed(int id) {
         acc = mix(orig, acc, 10.0 * ubo.params.delta);
 
         if (push.dimension == 1) {
-            acc = max(0.0, acc - 0.0025);
+            acc = max(0.0, acc - ubo.params.pheromone_fade * ubo.params.delta);
         }
 
         pheromones[id.y * world.x + id.x] = acc;
@@ -495,7 +495,7 @@ void set_seed(int id) {
         if (coord.x > 0 && coord.y > 0 && coord.x < world.x && coord.y < world.y && index >=0 && index < world.x * world.y) {
             f32 val = pheromones[index];
 
-            fcolor = vec4(vec3(val/2.0), 1.0);
+            fcolor = vec4(vec3(val/(2.0 * ubo.params.max_pheromone_strength)), 1.0);
         } else {
             fcolor = vec4(0.0);
         }
