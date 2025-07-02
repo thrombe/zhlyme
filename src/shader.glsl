@@ -289,12 +289,10 @@ void set_seed(int id) {
         f32 pheromone = pheromones_back[index];
 
         p.vel += pdir * 100.0 * ubo.params.delta;
-        f32 vlen = length(p.vel);
-        if (vlen > 0.0001) {
-            p.vel /= vlen;
-            p.vel += (vec2(random(), random()) - 0.5) * pt.wander_strength * ubo.params.max_wander_strength * 100.0 * ubo.params.delta;
-            p.vel *= ubo.params.ant_velocity;
-        }
+        // TODO: i'll prob have to use some continuous noise functions to make this turning time step independent
+        // random wander turning
+        p.vel += (vec2(random(), random()) - 0.5) * pt.wander_strength * ubo.params.max_wander_strength * 100.0 * ubo.params.delta;
+        p.vel = normalize(p.vel) * ubo.params.ant_velocity;
 
         ivec2 bpos = ivec2(p.pos / ubo.params.bin_size);
 
