@@ -234,76 +234,8 @@ void set_seed(int id) {
         Ant p = ants_back[id];
         // AntType pt = ant_types[p.type_index];
 
-        ivec2 bpos = ivec2(p.pos / ubo.params.bin_size);
-
-        // f32 pdirlen = length(pdir);
-        // if (pdirlen > 0.0001) {
-        //     pdir /= pdirlen;
-        //     pdir *= min(500, pdirlen);
-        // } else {
-        //     pdir = vec2(0.0);
-        // }
-
-        // vec2 fattract = vec2(0.0);
-        // vec2 fcollide = vec2(0.0);
-        // f32 exposure = 0.0;
-        // for (int y = -1; y <= 1; y++) {
-        //     for (int x = -1; x <= 1; x++) {
-        //         ivec2 bpos = (ivec2(x, y) + bpos + bworld) % bworld;
-        //         int index = bpos.y * bworld.x + bpos.x;
-        //         int offset_start = ant_bins[index];
-        //         int offset_end = ant_bins[index + 1];
-
-        //         for (int i = offset_start; i < offset_end; i++) {
-        //             if (i == id) {
-        //                 continue;
-        //             }
-
-        //             Ant o = ants_back[i];
-        //             AntType ot = ant_types[o.type_index];
-
-        //             AntForce forces = ant_force_matrix[p.type_index * ubo.params.ant_type_count + o.type_index];
-
-        //             // Calculate wrapped distance
-        //             vec3 dir = o.pos - p.pos;
-        //             dir -= world * sign(dir) * vec3(greaterThanEqual(abs(dir), world * 0.5));
-
-        //             f32 dist = length(dir);
-        //             if (dist <= 0.0) {
-        //                 continue;
-        //             }
-
-        //             exposure += 1.0;
-
-        //             dir /= dist;
-
-        //             f32 bin_size = ubo.params.bin_size;
-        //             f32 collision_r = forces.collision_radius * bin_size;
-        //             f32 collision_s = forces.collision_strength * ubo.params.collision_strength_scale;
-        //             f32 attraction_r = forces.attraction_radius * bin_size;
-        //             f32 attraction_peak_r = mix(forces.collision_radius, forces.attraction_radius, forces.attraction_peak_dist_factor) * bin_size;
-        //             f32 attraction_s = forces.attraction_strength * ubo.params.attraction_strength_scale;
-        //             if (dist < collision_r) {
-        //                 fcollide -= collision_s * (1.0 - dist / collision_r) * dir;
-        //             } else if (dist < attraction_peak_r) {
-        //                 fattract += attraction_s * ((dist - collision_r) / (attraction_peak_r - collision_r)) * dir;
-        //             } else if (dist < attraction_r) {
-        //                 fattract += attraction_s * (1.0 - (dist - attraction_peak_r) / (attraction_r - attraction_peak_r)) * dir;
-        //             } else {
-        //                 exposure -= 1.0;
-        //             }
-        //         }
-        //     }
-        // }
-
-        // f32 flen = length(fattract);
-        // pforce *= flen / (flen + 1);
-        // fattract *= 1.0/log(flen + 1);
-        // fattract *= pow(flen, 0.83) / max(flen, 1);
-        // fattract *= min(flen, ubo.params.max_attraction_factor * ubo.params.attraction_strength_scale)/max(flen, 1);
-
         // TODO: find which direction to move in
-        int rad = 3;
+        int rad = 5;
         vec2 pdir = vec2(0.0);
         for (int y = -rad; y <= rad; y++) {
             for (int x = -rad; x <= rad; x++) {
@@ -337,9 +269,53 @@ void set_seed(int id) {
             p.vel *= 80;
         }
 
-        // vec2 pforce = fcollide + fattract;
+        ivec2 bpos = ivec2(p.pos / ubo.params.bin_size);
+
+        vec2 fcollide = vec2(0.0);
+        f32 exposure = 0.0;
+        for (int y = -1; y <= 1; y++) {
+            for (int x = -1; x <= 1; x++) {
+                ivec2 bpos = (ivec2(x, y) + bpos + bworld) % bworld;
+                int index = bpos.y * bworld.x + bpos.x;
+                int offset_start = ant_bins[index];
+                int offset_end = ant_bins[index + 1];
+
+                for (int i = offset_start; i < offset_end; i++) {
+                    if (i == id) {
+                        continue;
+                    }
+
+                    Ant o = ants_back[i];
+                    AntType ot = ant_types[o.type_index];
+
+                    // Calculate wrapped distance
+                    vec2 dir = o.pos - p.pos;
+                    dir -= world * sign(dir) * vec2(greaterThanEqual(abs(dir), world * 0.5));
+
+                    f32 dist = length(dir);
+                    if (dist <= 0.0) {
+                        continue;
+                    }
+
+                    exposure += 1.0;
+
+                    dir /= dist;
+
+                    f32 bin_size = ubo.params.bin_size;
+                    f32 collision_r = 0.2 * bin_size;
+                    f32 collision_s = 3000;
+                    if (dist < collision_r) {
+                        fcollide -= collision_s * (1.0 - dist / collision_r) * dir;
+                    } else {
+                        exposure -= 1.0;
+                    }
+                }
+            }
+        }
+
+        vec2 pforce = fcollide;
         // p.vel *= ubo.params.friction;
-        // p.vel += pforce * ubo.params.delta;
+        p.vel += pforce * ubo.params.delta;
         p.pos += p.vel * ubo.params.delta;
 
         // position wrapping
@@ -377,7 +353,9 @@ void set_seed(int id) {
 
         f32 acc = 0.0;
         f32 count = 0.0;
-        for (int t = -ubo.params.half_spread_max; t <= ubo.params.half_spread_max; t++) {
+        // int spread = ubo.params.half_spread_max;
+        int spread = 2;
+        for (int t = -spread; t <= spread; t++) {
             ivec2 pos = ivec2(0);
 
             if (push.dimension == 0) {
@@ -401,12 +379,12 @@ void set_seed(int id) {
         f32 orig = pheromones_back[id.y * world.x + id.x];
         // if (push.dimension == 0) {
         // } else {
-            acc = mix(orig, acc, 8.0 * ubo.params.delta);
+            acc = mix(orig, acc, 10.0 * ubo.params.delta);
         // }
 
         if (push.dimension == 0) {
         } else {
-            acc = max(0.0, acc - 0.0015);
+            acc = max(0.0, acc - 0.0025);
         }
 
         pheromones[id.y * world.x + id.x] = acc;
