@@ -542,7 +542,7 @@ pub const ResourceManager = struct {
             spread_half_size: i32 = 2,
             world_wrapping: i32 = 0,
             pheromone_fade: f32 = 0.25,
-            pheromone_attraction: f32 = 1,
+            pheromone_attraction: f32 = 20,
             ant_velocity: f32 = 80,
             max_wander_strength: f32 = 1.0,
             max_pheromone_strength: f32 = 1.0,
@@ -1624,7 +1624,7 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderFloat("max_wander_strength", @ptrCast(&state.params.max_wander_strength), 0, 10);
         _ = c.ImGui_SliderFloat("max_pheromone_strength", @ptrCast(&state.params.max_pheromone_strength), -5, 5);
         _ = c.ImGui_SliderFloat("pheromone_fade", @ptrCast(&state.params.pheromone_fade), 0, 2);
-        _ = c.ImGui_SliderFloat("pheromone_attraction", @ptrCast(&state.params.pheromone_attraction), -1, 4);
+        _ = c.ImGui_SliderFloat("pheromone_attraction", @ptrCast(&state.params.pheromone_attraction), -5, 100);
         _ = c.ImGui_SliderFloat("ant_velocity", @ptrCast(&state.params.ant_velocity), 0, 300);
         _ = c.ImGui_SliderFloat("collision_radius_scale", @ptrCast(&state.params.collision_radius_scale), 0.0, 1.0);
         _ = c.ImGui_SliderFloat("collision_strength_scale", @ptrCast(&state.params.collision_strength_scale), 0.0, 10000);
@@ -1632,7 +1632,7 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderFloat("max_pheromone_detection_distance", @ptrCast(&state.params.max_pheromone_detection_distance), 0, 10);
 
         var sim_speed = state.ticker.speed.perc;
-        if (c.ImGui_SliderFloat("simulation_speed", @ptrCast(&sim_speed), 0.0, 5.0)) {
+        if (c.ImGui_SliderFloat("simulation_speed", @ptrCast(&sim_speed), 0.0, 10.0)) {
             state.ticker.set_speed(sim_speed);
             state.ticker.drop_pending_simtime();
         }

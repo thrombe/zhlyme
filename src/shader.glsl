@@ -288,11 +288,11 @@ void set_seed(int id) {
         int index = int(p.pos.y) * world.x + int(p.pos.x);
         f32 pheromone = pheromones_back[index];
 
-        p.vel += pdir * 20.0;
+        p.vel += pdir * 100.0 * ubo.params.delta;
         f32 vlen = length(p.vel);
         if (vlen > 0.0001) {
             p.vel /= vlen;
-            p.vel += (vec2(random(), random()) - 0.5) * pt.wander_strength * ubo.params.max_wander_strength;
+            p.vel += (vec2(random(), random()) - 0.5) * pt.wander_strength * ubo.params.max_wander_strength * 100.0 * ubo.params.delta;
             p.vel *= ubo.params.ant_velocity;
         }
 
