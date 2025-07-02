@@ -181,38 +181,55 @@ void set_seed(int id) {
         if (id >= state.ant_count) {
             return;
         }
-        vec2 world = vec2(float(ubo.params.world_size_x), float(ubo.params.world_size_y));
 
         Ant p = ants[id];
-
-        f32 vel = length(p.vel);
-        f32 dist = 2.0 * length(p.pos - world / 2.0) / length(world);
-        f32 ant_entropy = 0.0;
-        ant_entropy += float(vel < 10.0) * 0.001 + float(vel > 20.0) * 0.001;
-        ant_entropy += sqrt(p.exposure) * 0.0001;
-        ant_entropy += float(p.age > 1000.0) * 0.0003;
-        ant_entropy *= ubo.params.entropy;
-        ant_entropy *= ubo.params.delta * 100.0;
-
-        bool killed = false;
-        if (ant_entropy > random()) {
-            killed = true;
-        }
-
-        if (ubo.params.randomize_ant_types != 0 || killed) {
-            p.type_index = randuint() % ubo.params.ant_type_count;
-            p.age = 0.0;
-            p.exposure = 0.0;
-        }
-        if (ubo.params.randomize_ant_attrs != 0 || killed) {
-            p.pos = vec2(random(), random()) * world;
-            p.vel = (vec2(random(), random()) - 0.5) * mix(2000, 2, killed);
-        }
 
         ivec2 pos = ivec2(p.pos / ubo.params.bin_size);
         int index = clamp(pos.y * ubo.params.bin_buf_size_x + pos.x, 0, ubo.params.bin_buf_size);
 
         int bin_index = atomicAdd(ant_bins[index], -1);
+
+        // NOTE: do this stuff *after* we have the bin index. we need to respect the prefix sum bin data to get useful index values.
+        //  this is mostly implemented as a hack. after resetting/killing a ant - it likely won't interact with anything until the next frame
+        //  but that is fine if we save an entire pass (+ ant buffer copy) especially for this, which would be the proper way to implement this.
+        {
+            // entropy calculation
+            {
+                vec2 world = vec2(float(ubo.params.world_size_x), float(ubo.params.world_size_y));
+                f32 vel = length(p.vel);
+                f32 dist = 2.0 * length(p.pos - world / 2.0) / length(world);
+                f32 ant_entropy = 0.0;
+                ant_entropy += float(vel < 10.0) * 0.001 + float(vel > 20.0) * 0.001;
+                ant_entropy += sqrt(p.exposure) * 0.0001;
+                ant_entropy += float(p.age > 1000.0) * 0.0003;
+                ant_entropy *= ubo.params.entropy;
+
+                // framerate and step independent entropy
+                ant_entropy *= ubo.params.delta * 100.0;
+
+                if (ant_entropy > random()) {
+                    p.pos = vec2(random(), random()) * world;
+                    p.vel = (vec2(random(), random()) - 0.5) * 2;
+                    p.type_index = randuint() % ubo.params.ant_type_count;
+                    p.age = 0.0;
+                    p.exposure = 0.0;
+                }
+            }
+
+            // randomize ants
+            {
+                if (ubo.params.randomize_ant_types != 0) {
+                    p.type_index = randuint() % ubo.params.ant_type_count;
+                    p.age = 0.0;
+                    p.exposure = 0.0;
+                }
+                if (ubo.params.randomize_ant_attrs != 0) {
+                    vec2 world = vec2(float(ubo.params.world_size_x), float(ubo.params.world_size_y));
+                    p.pos = vec2(random(), random()) * world;
+                    p.vel = (vec2(random(), random()) - 0.5) * 2000;
+                }
+            }
+        }
 
         ants_back[bin_index - 1] = p;
     }
