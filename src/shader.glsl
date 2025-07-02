@@ -258,15 +258,20 @@ void set_seed(int id) {
             for (int x = -rad; x <= rad; x++) {
                 vec2 dir = vec2(x, y);
                 ivec2 pos = ivec2(p.pos) + ivec2(normalize(p.vel) * 2) + ivec2(x, y);
-                // pos = ivec2(pos.x % world.x, pos.y % world.y);
+
+                if (ubo.params.world_wrapping == 1) {
+                    pos = ivec2(pos.x % world.x, pos.y % world.y);
+                }
 
                 if (length(dir) > 0.0001) {
                     dir /= length(dir);
                 }
 
-                if (pos.x < 0 || pos.x >= world.x || pos.y < 0 || pos.y >= world.y) {
-                    pdir -= dir;
-                    continue;
+                if (ubo.params.world_wrapping == 0) {
+                    if (pos.x < 0 || pos.x >= world.x || pos.y < 0 || pos.y >= world.y) {
+                        pdir -= dir;
+                        continue;
+                    }
                 }
 
                 if (dot(p.vel, dir) >= 0.0) {
@@ -335,15 +340,17 @@ void set_seed(int id) {
         p.vel += pforce * ubo.params.delta;
         p.pos += p.vel * ubo.params.delta;
 
-        // position wrapping
-        // p.pos += world * vec2(lessThan(p.pos, vec2(0)));
-        // p.pos -= world * vec2(greaterThanEqual(p.pos, world));
-
-        if (p.pos.x < 0 || p.pos.x >= world.x) {
-            p.vel.x *= -1;
-        }
-        if (p.pos.y < 0 || p.pos.y >= world.y) {
-            p.vel.y *= -1;
+        if (ubo.params.world_wrapping == 1) {
+            // position wrapping
+            p.pos += world * vec2(lessThan(p.pos, vec2(0)));
+            p.pos -= world * vec2(greaterThanEqual(p.pos, world));
+        } else {
+            if (p.pos.x < 0 || p.pos.x >= world.x) {
+                p.vel.x *= -1;
+            }
+            if (p.pos.y < 0 || p.pos.y >= world.y) {
+                p.vel.y *= -1;
+            }
         }
 
         // prevents position blow up
@@ -370,23 +377,28 @@ void set_seed(int id) {
 
         f32 acc = 0.0;
         f32 count = 0.0;
-        // int spread = ubo.params.half_spread_max;
-        int spread = 2;
+        int spread = ubo.params.half_spread_max;
         for (int t = -spread; t <= spread; t++) {
             ivec2 pos = ivec2(0);
 
-            if (push.dimension == 0) {
-                // pos = ivec2(id.x, (world.y + id.y + t) % world.y);
-                pos = ivec2(id.x, id.y + t);
+            if (ubo.params.world_wrapping == 1) {
+                if (push.dimension == 0) {
+                    pos = ivec2(id.x, (world.y + id.y + t) % world.y);
+                } else {
+                    pos = ivec2((world.x + id.x + t) % world.x, id.y);
+                }
             } else {
-                // pos = ivec2((world.x + id.x + t) % world.x, id.y);
-                pos = ivec2(id.x + t, id.y);
-            }
+                if (push.dimension == 0) {
+                    pos = ivec2(id.x, id.y + t);
+                } else {
+                    pos = ivec2(id.x + t, id.y);
+                }
 
-            if (pos.x < 0 || pos.x >= world.x || pos.y < 0 || pos.y >= world.y) {
-                continue;
+                if (pos.x < 0 || pos.x >= world.x || pos.y < 0 || pos.y >= world.y) {
+                    continue;
+                }
             }
-
+            
             // TODO: maybe also bind 'pheromones_back' as an image and do the fancy texture sampling blur
             acc += pheromones_back[pos.y * world.x + pos.x];
             count += 1.0;
@@ -394,13 +406,9 @@ void set_seed(int id) {
         acc /= count;
 
         f32 orig = pheromones_back[id.y * world.x + id.x];
-        // if (push.dimension == 0) {
-        // } else {
-            acc = mix(orig, acc, 10.0 * ubo.params.delta);
-        // }
+        acc = mix(orig, acc, 10.0 * ubo.params.delta);
 
-        if (push.dimension == 0) {
-        } else {
+        if (push.dimension == 1) {
             acc = max(0.0, acc - 0.0025);
         }
 

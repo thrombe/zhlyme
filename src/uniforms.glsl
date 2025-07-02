@@ -40,6 +40,7 @@
      float entropy;
      float friction;
      int half_spread_max;
+     int world_wrapping;
  };
 
  struct PushConstantsCompute {

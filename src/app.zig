@@ -533,7 +533,8 @@ pub const ResourceManager = struct {
 
             entropy: f32 = 0,
             friction: f32 = 0,
-            half_spread_max: i32 = 1,
+            half_spread_max: i32 = 2,
+            world_wrapping: i32 = 0,
         };
 
         fn from(
@@ -1589,6 +1590,8 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderInt("bin size", @ptrCast(&state.params.bin_size), 4, 200);
         _ = c.ImGui_SliderFloat("entropy", @ptrCast(&state.params.entropy), 0.0, 1.0);
         reset = c.ImGui_SliderFloat("friction", @ptrCast(&state.friction), 0.0, 5.0) or reset;
+        _ = c.ImGui_Checkbox("world_wrapping", @ptrCast(&state.params.world_wrapping));
+        _ = c.ImGui_SliderInt("half_spread_max", @ptrCast(&state.params.half_spread_max), 0, 10);
 
         var sim_speed = state.ticker.speed.perc;
         if (c.ImGui_SliderFloat("simulation_speed", @ptrCast(&sim_speed), 0.0, 5.0)) {
