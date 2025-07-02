@@ -477,6 +477,7 @@ pub const ResourceManager = struct {
     };
     pub const AntType = extern struct {
         color: Vec4,
+        wander_strength: f32,
         pheromone_detection_distance: f32,
         pheromone_detection_radius: f32,
         pheromone_attraction: f32,
@@ -543,6 +544,7 @@ pub const ResourceManager = struct {
             pheromone_fade: f32 = 0.25,
             pheromone_attraction: f32 = 1,
             ant_velocity: f32 = 80,
+            max_wander_strength: f32 = 1.0,
             max_pheromone_strength: f32 = 1.0,
             max_pheromone_detection_radius: f32 = 5,
             max_pheromone_detection_distance: f32 = 3,
@@ -1433,6 +1435,7 @@ pub const AppState = struct {
 
     fn randomize_ant_attrs(self: *@This(), app: *App) void {
         const zrng = .{
+            .wander_strength = math.Rng.init(self.rng.random()).with2(.{ .min = 0.2, .max = 0.4 }),
             .collision_radius = math.Rng.init(self.rng.random()).with2(.{ .min = 0.4, .max = 0.6 }),
             .pheromone_strength = math.Rng.init(self.rng.random()).with2(.{ .min = 0.7, .max = 1.0 }),
             .pheromone_attraction = math.Rng.init(self.rng.random()).with2(.{ .min = 0.7, .max = 1.0 }),
@@ -1444,6 +1447,7 @@ pub const AppState = struct {
             const size = zrng.collision_radius.next();
             pt.collision_radius = size;
             pt.collision_strength = size;
+            pt.wander_strength = zrng.wander_strength.next();
             pt.pheromone_strength = zrng.pheromone_strength.next();
             pt.pheromone_attraction = zrng.pheromone_attraction.next();
             pt.pheromone_detection_distance = zrng.pheromone_detection_distance.next();
@@ -1617,6 +1621,7 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderFloat("entropy", @ptrCast(&state.params.entropy), 0.0, 1.0);
         _ = c.ImGui_Checkbox("world_wrapping", @ptrCast(&state.params.world_wrapping));
         _ = c.ImGui_SliderInt("spread_half_size", @ptrCast(&state.params.spread_half_size), 0, 10);
+        _ = c.ImGui_SliderFloat("max_wander_strength", @ptrCast(&state.params.max_wander_strength), 0, 10);
         _ = c.ImGui_SliderFloat("max_pheromone_strength", @ptrCast(&state.params.max_pheromone_strength), -5, 5);
         _ = c.ImGui_SliderFloat("pheromone_fade", @ptrCast(&state.params.pheromone_fade), 0, 2);
         _ = c.ImGui_SliderFloat("pheromone_attraction", @ptrCast(&state.params.pheromone_attraction), -1, 4);
@@ -1676,6 +1681,7 @@ pub const GuiState = struct {
 
     fn editantType(_: *@This(), e: *ResourceManager.AntType) void {
         _ = c.ImGui_ColorEdit4("color", e.color.as_buf().ptr, c.ImGuiColorEditFlags_AlphaBar | c.ImGuiColorEditFlags_Float);
+        _ = c.ImGui_SliderFloat("wander_strength", @ptrCast(&e.wander_strength), 0, 1);
         _ = c.ImGui_SliderFloat("pheromone_attraction", @ptrCast(&e.pheromone_attraction), -1, 1);
         _ = c.ImGui_SliderFloat("pheromone_strength", @ptrCast(&e.pheromone_strength), -1, 1);
         _ = c.ImGui_SliderFloat("visual radius", @ptrCast(&e.visual_radius), 0.0, 1);

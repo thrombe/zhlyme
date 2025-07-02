@@ -292,7 +292,7 @@ void set_seed(int id) {
         f32 vlen = length(p.vel);
         if (vlen > 0.0001) {
             p.vel /= vlen;
-            p.vel += (vec2(random(), random()) - 0.5) * 0.3;
+            p.vel += (vec2(random(), random()) - 0.5) * pt.wander_strength * ubo.params.max_wander_strength;
             p.vel *= ubo.params.ant_velocity;
         }
 
