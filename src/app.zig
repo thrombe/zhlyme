@@ -538,7 +538,7 @@ pub const ResourceManager = struct {
             world_size_y: i32,
 
             entropy: f32 = 0,
-            half_spread_max: i32 = 2,
+            spread_half_size: i32 = 2,
             world_wrapping: i32 = 0,
             max_pheromone_strength: f32 = 1.0,
             max_pheromone_detection_radius: f32 = 5,
@@ -1613,7 +1613,7 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderInt("bin size", @ptrCast(&state.params.bin_size), 4, 200);
         _ = c.ImGui_SliderFloat("entropy", @ptrCast(&state.params.entropy), 0.0, 1.0);
         _ = c.ImGui_Checkbox("world_wrapping", @ptrCast(&state.params.world_wrapping));
-        _ = c.ImGui_SliderInt("half_spread_max", @ptrCast(&state.params.half_spread_max), 0, 10);
+        _ = c.ImGui_SliderInt("spread_half_size", @ptrCast(&state.params.spread_half_size), 0, 10);
         _ = c.ImGui_SliderFloat("max_pheromone_strength", @ptrCast(&state.params.max_pheromone_strength), -5, 5);
         _ = c.ImGui_SliderFloat("collision_radius_scale", @ptrCast(&state.params.collision_radius_scale), 0.0, 1.0);
         _ = c.ImGui_SliderFloat("collision_strength_scale", @ptrCast(&state.params.collision_strength_scale), 0.0, 10000);

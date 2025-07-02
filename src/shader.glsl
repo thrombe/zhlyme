@@ -362,8 +362,8 @@ void set_seed(int id) {
         // TODO: ants race to set this value. but whatever man
         pheromones[index] = min(ubo.params.max_pheromone_strength, pheromone + pt.pheromone_strength);
 
-        p.age += 1.0;
-        p.exposure = exposure;
+        p.age += 100.0 * ubo.params.delta;
+        p.exposure = exposure * 100.0 * ubo.params.delta;
 
         ants[id] = p;
     }
@@ -381,7 +381,7 @@ void set_seed(int id) {
 
         f32 acc = 0.0;
         f32 count = 0.0;
-        int spread = ubo.params.half_spread_max;
+        int spread = ubo.params.spread_half_size;
         for (int t = -spread; t <= spread; t++) {
             ivec2 pos = ivec2(0);
 
