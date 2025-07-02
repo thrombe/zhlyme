@@ -280,7 +280,7 @@ void set_seed(int id) {
                 }
 
                 if (dot(p.vel, dir) * pt.pheromone_attraction >= 0.0) {
-                    pdir += dir * pheromones_back[pos.y * world.x + pos.x] * pt.pheromone_attraction;
+                    pdir += dir * pheromones_back[pos.y * world.x + pos.x] * pt.pheromone_attraction * ubo.params.pheromone_attraction;
                 }
             }
         }
