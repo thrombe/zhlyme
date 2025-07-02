@@ -274,8 +274,8 @@ void set_seed(int id) {
                     }
                 }
 
-                if (dot(p.vel, dir) >= 0.0) {
-                    pdir += dir * pheromones_back[pos.y * world.x + pos.x];
+                if (dot(p.vel, dir) * pt.pheromone_attraction >= 0.0) {
+                    pdir += dir * pheromones_back[pos.y * world.x + pos.x] * pt.pheromone_attraction;
                 }
             }
         }
@@ -356,7 +356,8 @@ void set_seed(int id) {
         // prevents position blow up
         p.pos = clamp(p.pos, vec2(0.0), world);
 
-        pheromones[index] = 1.0;
+        // TODO: ants race to set this value. but whatever man
+        pheromones[index] = min(ubo.params.max_pheromone_strength, pheromone + pt.pheromone_strength);
 
         p.age += 1.0;
         // p.exposure = exposure;

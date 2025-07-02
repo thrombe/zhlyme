@@ -477,7 +477,8 @@ pub const ResourceManager = struct {
     };
     pub const AntType = extern struct {
         color: Vec4,
-        // pheromone_strength: f32,
+        pheromone_attraction: f32,
+        pheromone_strength: f32,
         collision_radius: f32,
         visual_radius: f32,
         collision_strength: f32,
@@ -538,6 +539,7 @@ pub const ResourceManager = struct {
             friction: f32 = 0,
             half_spread_max: i32 = 2,
             world_wrapping: i32 = 0,
+            max_pheromone_strength: f32 = 1.0,
             collision_radius_scale: f32 = 0.4,
             collision_strength_scale: f32 = 3000,
         };
@@ -1428,12 +1430,16 @@ pub const AppState = struct {
     fn randomize_ant_attrs(self: *@This(), app: *App) void {
         const zrng = .{
             .collision_radius = math.Rng.init(self.rng.random()).with2(.{ .min = 0.4, .max = 0.6 }),
+            .pheromone_strength = math.Rng.init(self.rng.random()).with2(.{ .min = 0.7, .max = 1.0 }),
+            .pheromone_attraction = math.Rng.init(self.rng.random()).with2(.{ .min = 0.7, .max = 1.0 }),
         };
 
         for (app.resources.ant_types) |*pt| {
             const size = zrng.collision_radius.next();
             pt.collision_radius = size;
             pt.collision_strength = size;
+            pt.pheromone_strength = zrng.pheromone_strength.next();
+            pt.pheromone_attraction = zrng.pheromone_attraction.next();
         }
 
         self.randomize.ant_attrs = true;
@@ -1604,6 +1610,7 @@ pub const GuiState = struct {
         reset = c.ImGui_SliderFloat("friction", @ptrCast(&state.friction), 0.0, 5.0) or reset;
         _ = c.ImGui_Checkbox("world_wrapping", @ptrCast(&state.params.world_wrapping));
         _ = c.ImGui_SliderInt("half_spread_max", @ptrCast(&state.params.half_spread_max), 0, 10);
+        _ = c.ImGui_SliderFloat("max_pheromone_strength", @ptrCast(&state.params.max_pheromone_strength), -5, 5);
         _ = c.ImGui_SliderFloat("collision_radius_scale", @ptrCast(&state.params.collision_radius_scale), 0.0, 1.0);
         _ = c.ImGui_SliderFloat("collision_strength_scale", @ptrCast(&state.params.collision_strength_scale), 0.0, 10000);
 
@@ -1657,6 +1664,8 @@ pub const GuiState = struct {
 
     fn editantType(_: *@This(), e: *ResourceManager.AntType) void {
         _ = c.ImGui_ColorEdit4("color", e.color.as_buf().ptr, c.ImGuiColorEditFlags_AlphaBar | c.ImGuiColorEditFlags_Float);
+        _ = c.ImGui_SliderFloat("pheromone_attraction", @ptrCast(&e.pheromone_attraction), -1, 1);
+        _ = c.ImGui_SliderFloat("pheromone_strength", @ptrCast(&e.pheromone_strength), -1, 1);
         _ = c.ImGui_SliderFloat("visual radius", @ptrCast(&e.visual_radius), 0.0, 1);
         _ = c.ImGui_SliderFloat("collision radius", @ptrCast(&e.collision_radius), 0.0, 1);
     }
