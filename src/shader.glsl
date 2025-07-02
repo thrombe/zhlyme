@@ -300,38 +300,40 @@ void set_seed(int id) {
 
         vec2 fcollide = vec2(0.0);
         f32 exposure = 0.0;
-        for (int y = -1; y <= 1; y++) {
-            for (int x = -1; x <= 1; x++) {
-                ivec2 bpos = (ivec2(x, y) + bpos + bworld) % bworld;
-                int index = bpos.y * bworld.x + bpos.x;
-                int offset_start = ant_bins[index];
-                int offset_end = ant_bins[index + 1];
+        if (ubo.params.collision_strength_scale > 0.001 && ubo.params.collision_radius_scale > 0.001) {
+            for (int y = -1; y <= 1; y++) {
+                for (int x = -1; x <= 1; x++) {
+                    ivec2 bpos = (ivec2(x, y) + bpos + bworld) % bworld;
+                    int index = bpos.y * bworld.x + bpos.x;
+                    int offset_start = ant_bins[index];
+                    int offset_end = ant_bins[index + 1];
 
-                for (int i = offset_start; i < offset_end; i++) {
-                    if (i == id) {
-                        continue;
-                    }
+                    for (int i = offset_start; i < offset_end; i++) {
+                        if (i == id) {
+                            continue;
+                        }
 
-                    Ant o = ants_back[i];
-                    AntType ot = ant_types[o.type_index];
+                        Ant o = ants_back[i];
+                        AntType ot = ant_types[o.type_index];
 
-                    // Calculate wrapped distance
-                    vec2 dir = o.pos - p.pos;
-                    dir -= world * sign(dir) * vec2(greaterThanEqual(abs(dir), world * 0.5));
+                        // Calculate wrapped distance
+                        vec2 dir = o.pos - p.pos;
+                        dir -= world * sign(dir) * vec2(greaterThanEqual(abs(dir), world * 0.5));
 
-                    f32 dist = length(dir);
-                    if (dist <= 0.0) {
-                        continue;
-                    }
+                        f32 dist = length(dir);
+                        if (dist <= 0.0) {
+                            continue;
+                        }
 
-                    dir /= dist;
+                        dir /= dist;
 
-                    f32 bin_size = ubo.params.bin_size;
-                    f32 collision_r = max(pt.collision_radius, ot.collision_radius) * ubo.params.collision_radius_scale * bin_size;
-                    f32 collision_s = ubo.params.collision_strength_scale * max(pt.collision_strength, ot.collision_strength);
-                    if (dist < collision_r) {
-                        fcollide -= collision_s * (1.0 - dist / collision_r) * dir;
-                        exposure += 1.0;
+                        f32 bin_size = ubo.params.bin_size;
+                        f32 collision_r = max(pt.collision_radius, ot.collision_radius) * ubo.params.collision_radius_scale * bin_size;
+                        f32 collision_s = ubo.params.collision_strength_scale * max(pt.collision_strength, ot.collision_strength);
+                        if (dist < collision_r) {
+                            fcollide -= collision_s * (1.0 - dist / collision_r) * dir;
+                            exposure += 1.0;
+                        }
                     }
                 }
             }
