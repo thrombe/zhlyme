@@ -477,6 +477,8 @@ pub const ResourceManager = struct {
     };
     pub const AntType = extern struct {
         color: Vec4,
+        pheromone_detection_distance: f32,
+        pheromone_detection_radius: f32,
         pheromone_attraction: f32,
         pheromone_strength: f32,
         collision_radius: f32,
@@ -540,6 +542,8 @@ pub const ResourceManager = struct {
             half_spread_max: i32 = 2,
             world_wrapping: i32 = 0,
             max_pheromone_strength: f32 = 1.0,
+            max_pheromone_detection_radius: f32 = 5,
+            max_pheromone_detection_distance: f32 = 3,
             collision_radius_scale: f32 = 0.4,
             collision_strength_scale: f32 = 3000,
         };
@@ -1432,6 +1436,8 @@ pub const AppState = struct {
             .collision_radius = math.Rng.init(self.rng.random()).with2(.{ .min = 0.4, .max = 0.6 }),
             .pheromone_strength = math.Rng.init(self.rng.random()).with2(.{ .min = 0.7, .max = 1.0 }),
             .pheromone_attraction = math.Rng.init(self.rng.random()).with2(.{ .min = 0.7, .max = 1.0 }),
+            .pheromone_detection_distance = math.Rng.init(self.rng.random()).with2(.{ .min = 0.9, .max = 1.0 }),
+            .pheromone_detection_radius = math.Rng.init(self.rng.random()).with2(.{ .min = 0.9, .max = 1.0 }),
         };
 
         for (app.resources.ant_types) |*pt| {
@@ -1440,6 +1446,8 @@ pub const AppState = struct {
             pt.collision_strength = size;
             pt.pheromone_strength = zrng.pheromone_strength.next();
             pt.pheromone_attraction = zrng.pheromone_attraction.next();
+            pt.pheromone_detection_distance = zrng.pheromone_detection_distance.next();
+            pt.pheromone_detection_radius = zrng.pheromone_detection_radius.next();
         }
 
         self.randomize.ant_attrs = true;
@@ -1613,6 +1621,8 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderFloat("max_pheromone_strength", @ptrCast(&state.params.max_pheromone_strength), -5, 5);
         _ = c.ImGui_SliderFloat("collision_radius_scale", @ptrCast(&state.params.collision_radius_scale), 0.0, 1.0);
         _ = c.ImGui_SliderFloat("collision_strength_scale", @ptrCast(&state.params.collision_strength_scale), 0.0, 10000);
+        _ = c.ImGui_SliderFloat("max_pheromone_detection_radius", @ptrCast(&state.params.max_pheromone_detection_radius), 0, 10);
+        _ = c.ImGui_SliderFloat("max_pheromone_detection_distance", @ptrCast(&state.params.max_pheromone_detection_distance), 0, 10);
 
         var sim_speed = state.ticker.speed.perc;
         if (c.ImGui_SliderFloat("simulation_speed", @ptrCast(&sim_speed), 0.0, 5.0)) {
@@ -1668,5 +1678,7 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderFloat("pheromone_strength", @ptrCast(&e.pheromone_strength), -1, 1);
         _ = c.ImGui_SliderFloat("visual radius", @ptrCast(&e.visual_radius), 0.0, 1);
         _ = c.ImGui_SliderFloat("collision radius", @ptrCast(&e.collision_radius), 0.0, 1);
+        _ = c.ImGui_SliderFloat("pheromone_detection_distance", @ptrCast(&e.pheromone_detection_distance), 0, 1);
+        _ = c.ImGui_SliderFloat("pheromone_detection_radius", @ptrCast(&e.pheromone_detection_radius), 0, 1);
     }
 };

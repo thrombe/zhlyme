@@ -251,16 +251,21 @@ void set_seed(int id) {
         Ant p = ants_back[id];
         AntType pt = ant_types[p.type_index];
 
-        // TODO: find which direction to move in
-        int rad = 5;
+        f32 rad = ubo.params.max_pheromone_detection_radius * pt.pheromone_detection_radius;
         vec2 pdir = vec2(0.0);
-        for (int y = -rad; y <= rad; y++) {
-            for (int x = -rad; x <= rad; x++) {
+        for (i32 y = int(floor(-rad)); y <= int(ceil(rad)); y++) {
+            for (i32 x = int(floor(-rad)); x <= int(ceil(rad)); x++) {
                 vec2 dir = vec2(x, y);
-                ivec2 pos = ivec2(p.pos) + ivec2(normalize(p.vel) * 2) + ivec2(x, y);
+                ivec2 pos = ivec2(p.pos);
+                pos += ivec2(normalize(p.vel) * ubo.params.max_pheromone_detection_distance * pt.pheromone_detection_distance);
+                pos += ivec2(dir);
 
                 if (ubo.params.world_wrapping == 1) {
                     pos = ivec2(pos.x % world.x, pos.y % world.y);
+                }
+
+                if (length(dir) > rad) {
+                    continue;
                 }
 
                 if (length(dir) > 0.0001) {

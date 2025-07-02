@@ -10,6 +10,8 @@
 
  struct AntType {
      vec4 color;
+     float pheromone_detection_distance;
+     float pheromone_detection_radius;
      float pheromone_attraction;
      float pheromone_strength;
      float collision_radius;
@@ -46,6 +48,8 @@
      int half_spread_max;
      int world_wrapping;
      float max_pheromone_strength;
+     float max_pheromone_detection_radius;
+     float max_pheromone_detection_distance;
      float collision_radius_scale;
      float collision_strength_scale;
  };
