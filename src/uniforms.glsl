@@ -10,8 +10,9 @@
 
  struct AntType {
      vec4 color;
-     float strength;
-     float radius;
+     float collision_radius;
+     float visual_radius;
+     float collision_strength;
  };
 
  struct Ant {
@@ -26,6 +27,7 @@
      float delta;
      uint grid_size;
      float zoom;
+     float visual_radius_scale;
      uint randomize_ant_types;
      uint randomize_ant_attrs;
      uint ant_type_count;
@@ -41,6 +43,8 @@
      float friction;
      int half_spread_max;
      int world_wrapping;
+     float collision_radius_scale;
+     float collision_strength_scale;
  };
 
  struct PushConstantsCompute {

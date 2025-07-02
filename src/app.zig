@@ -477,8 +477,10 @@ pub const ResourceManager = struct {
     };
     pub const AntType = extern struct {
         color: Vec4,
-        strength: f32,
-        radius: f32,
+        // pheromone_strength: f32,
+        collision_radius: f32,
+        visual_radius: f32,
+        collision_strength: f32,
     };
     pub const Ant = extern struct {
         pos: math.Vec2,
@@ -516,6 +518,7 @@ pub const ResourceManager = struct {
 
             grid_size: u32,
             zoom: f32 = 1.0,
+            visual_radius_scale: f32 = 1.0,
 
             randomize_ant_types: u32 = 0,
             randomize_ant_attrs: u32 = 0,
@@ -535,6 +538,8 @@ pub const ResourceManager = struct {
             friction: f32 = 0,
             half_spread_max: i32 = 2,
             world_wrapping: i32 = 0,
+            collision_radius_scale: f32 = 0.4,
+            collision_strength_scale: f32 = 3000,
         };
 
         fn from(
@@ -1404,15 +1409,12 @@ pub const AppState = struct {
     fn randomize_ant_colors(self: *@This(), app: *App) void {
         const zrng = .{
             .color = math.Rng.init(self.rng.random()).with2(.{ .min = 0.1, .max = 1.0 }),
-            .ant_scale = math.Rng.init(self.rng.random()).with2(.{ .min = 0.4, .max = 0.6 }),
+            .visual_radius = math.Rng.init(self.rng.random()).with2(.{ .min = 0.4, .max = 0.6 }),
         };
 
         for (app.resources.ant_types) |*pt| {
-            pt.* = .{
-                .color = Vec3.random(&zrng.color).normalize().withw(1.0),
-                .strength = 1,
-                .radius = 1,
-            };
+            pt.color = Vec3.random(&zrng.color).normalize().withw(1.0);
+            pt.visual_radius = zrng.visual_radius.next();
         }
 
         self.randomize.ant_colors = true;
@@ -1424,7 +1426,16 @@ pub const AppState = struct {
     }
 
     fn randomize_ant_attrs(self: *@This(), app: *App) void {
-        _ = app;
+        const zrng = .{
+            .collision_radius = math.Rng.init(self.rng.random()).with2(.{ .min = 0.4, .max = 0.6 }),
+        };
+
+        for (app.resources.ant_types) |*pt| {
+            const size = zrng.collision_radius.next();
+            pt.collision_radius = size;
+            pt.collision_strength = size;
+        }
+
         self.randomize.ant_attrs = true;
     }
 
@@ -1592,6 +1603,8 @@ pub const GuiState = struct {
         reset = c.ImGui_SliderFloat("friction", @ptrCast(&state.friction), 0.0, 5.0) or reset;
         _ = c.ImGui_Checkbox("world_wrapping", @ptrCast(&state.params.world_wrapping));
         _ = c.ImGui_SliderInt("half_spread_max", @ptrCast(&state.params.half_spread_max), 0, 10);
+        _ = c.ImGui_SliderFloat("collision_radius_scale", @ptrCast(&state.params.collision_radius_scale), 0.0, 1.0);
+        _ = c.ImGui_SliderFloat("collision_strength_scale", @ptrCast(&state.params.collision_strength_scale), 0.0, 10000);
 
         var sim_speed = state.ticker.speed.perc;
         if (c.ImGui_SliderFloat("simulation_speed", @ptrCast(&sim_speed), 0.0, 5.0)) {
@@ -1643,5 +1656,7 @@ pub const GuiState = struct {
 
     fn editantType(_: *@This(), e: *ResourceManager.AntType) void {
         _ = c.ImGui_ColorEdit4("color", e.color.as_buf().ptr, c.ImGuiColorEditFlags_AlphaBar | c.ImGuiColorEditFlags_Float);
+        _ = c.ImGui_SliderFloat("visual radius", @ptrCast(&e.visual_radius), 0.0, 1);
+        _ = c.ImGui_SliderFloat("collision radius", @ptrCast(&e.collision_radius), 0.0, 1);
     }
 };

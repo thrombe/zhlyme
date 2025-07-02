@@ -249,7 +249,7 @@ void set_seed(int id) {
         ivec2 bworld = ivec2(ubo.params.bin_buf_size_x, ubo.params.bin_buf_size_y);
 
         Ant p = ants_back[id];
-        // AntType pt = ant_types[p.type_index];
+        AntType pt = ant_types[p.type_index];
 
         // TODO: find which direction to move in
         int rad = 5;
@@ -324,8 +324,8 @@ void set_seed(int id) {
                     dir /= dist;
 
                     f32 bin_size = ubo.params.bin_size;
-                    f32 collision_r = 0.2 * bin_size;
-                    f32 collision_s = 3000;
+                    f32 collision_r = max(pt.collision_radius, ot.collision_radius) * ubo.params.collision_radius_scale * bin_size;
+                    f32 collision_s = ubo.params.collision_strength_scale * max(pt.collision_strength, ot.collision_strength);
                     if (dist < collision_r) {
                         fcollide -= collision_s * (1.0 - dist / collision_r) * dir;
                     } else {
