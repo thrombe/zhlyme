@@ -44,7 +44,6 @@
      int world_size_x;
      int world_size_y;
      float entropy;
-     float friction;
      int half_spread_max;
      int world_wrapping;
      float max_pheromone_strength;

@@ -538,7 +538,6 @@ pub const ResourceManager = struct {
             world_size_y: i32,
 
             entropy: f32 = 0,
-            friction: f32 = 0,
             half_spread_max: i32 = 2,
             world_wrapping: i32 = 0,
             max_pheromone_strength: f32 = 1.0,
@@ -562,7 +561,6 @@ pub const ResourceManager = struct {
             const ant_count = state.params.ant_count;
             state.params.ant_count = @min(ant_count + spawn_count, state.max_ant_count);
             state.params.spawn_count = state.params.ant_count - ant_count;
-            state.params.friction = @exp(-state.friction * state.params.delta);
             state.params.ant_type_count = state.ant_type_count;
             state.params.randomize_ant_types = @intCast(@intFromBool(state.randomize.ant_types));
             state.params.randomize_ant_attrs = @intCast(@intFromBool(state.randomize.ant_attrs));
@@ -1355,7 +1353,6 @@ pub const AppState = struct {
     max_ant_type_count: u32 = 10,
     ant_type_count: u32 = 5,
     spawn_count: u32 = 10000,
-    friction: f32 = 2.0,
     requested_world_size: math.Vec2T(i32) = .{ .x = 1800, .y = 1200 },
     params: ResourceManager.Uniforms.Params = .{
         .spawn_count = 0,
@@ -1615,7 +1612,6 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderFloat("visual_radius_scale", @ptrCast(&state.params.visual_radius_scale), 0, 100);
         _ = c.ImGui_SliderInt("bin size", @ptrCast(&state.params.bin_size), 4, 200);
         _ = c.ImGui_SliderFloat("entropy", @ptrCast(&state.params.entropy), 0.0, 1.0);
-        reset = c.ImGui_SliderFloat("friction", @ptrCast(&state.friction), 0.0, 5.0) or reset;
         _ = c.ImGui_Checkbox("world_wrapping", @ptrCast(&state.params.world_wrapping));
         _ = c.ImGui_SliderInt("half_spread_max", @ptrCast(&state.params.half_spread_max), 0, 10);
         _ = c.ImGui_SliderFloat("max_pheromone_strength", @ptrCast(&state.params.max_pheromone_strength), -5, 5);

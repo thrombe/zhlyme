@@ -341,7 +341,6 @@ void set_seed(int id) {
         }
 
         vec2 pforce = fcollide;
-        // p.vel *= ubo.params.friction;
         p.vel += pforce * ubo.params.delta;
         p.pos += p.vel * ubo.params.delta;
 
