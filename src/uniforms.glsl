@@ -47,6 +47,7 @@
      int spread_half_size;
      int world_wrapping;
      float pheromone_fade;
+     float ant_velocity;
      float max_pheromone_strength;
      float max_pheromone_detection_radius;
      float max_pheromone_detection_distance;

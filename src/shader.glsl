@@ -293,7 +293,7 @@ void set_seed(int id) {
         if (vlen > 0.0001) {
             p.vel /= vlen;
             p.vel += (vec2(random(), random()) - 0.5) * 0.3;
-            p.vel *= 80;
+            p.vel *= ubo.params.ant_velocity;
         }
 
         ivec2 bpos = ivec2(p.pos / ubo.params.bin_size);
