@@ -514,7 +514,7 @@ pub const ResourceManager = struct {
         const Params = struct {
             delta: f32 = 0,
 
-            grid_size: u32 = 32,
+            grid_size: u32,
             zoom: f32 = 1.0,
 
             randomize_ant_types: u32 = 0,
@@ -531,8 +531,7 @@ pub const ResourceManager = struct {
             world_size_x: i32,
             world_size_y: i32,
 
-            pheromone_attraction_scale: f32 = 1.0,
-            entropy: f32 = 0.1,
+            entropy: f32 = 0,
             friction: f32 = 0,
             half_spread_max: i32 = 1,
         };
@@ -556,13 +555,12 @@ pub const ResourceManager = struct {
             state.params.randomize_ant_types = @intCast(@intFromBool(state.randomize.ant_types));
             state.params.randomize_ant_attrs = @intCast(@intFromBool(state.randomize.ant_attrs));
 
-            state.params.bin_size = state.bin_size;
-            state.params.bin_buf_size_x = @divFloor(state.requested_world_size.x, state.bin_size);
-            state.params.bin_buf_size_y = @divFloor(state.requested_world_size.y, state.bin_size);
+            state.params.bin_buf_size_x = @divFloor(state.requested_world_size.x, state.params.bin_size);
+            state.params.bin_buf_size_y = @divFloor(state.requested_world_size.y, state.params.bin_size);
             state.params.bin_buf_size = state.params.bin_buf_size_x * state.params.bin_buf_size_y;
 
-            state.params.world_size_x = state.params.bin_buf_size_x * state.bin_size;
-            state.params.world_size_y = state.params.bin_buf_size_y * state.bin_size;
+            state.params.world_size_x = state.params.bin_buf_size_x * state.params.bin_size;
+            state.params.world_size_y = state.params.bin_buf_size_y * state.params.bin_size;
 
             // TODO: don't fuse every frame man
             _ = state.cmdbuf_fuse.fuse();
@@ -1344,15 +1342,16 @@ pub const AppState = struct {
     max_ant_count: u32 = 100000,
     max_ant_type_count: u32 = 10,
     ant_type_count: u32 = 5,
-    spawn_count: u32 = 1000,
+    spawn_count: u32 = 10000,
     friction: f32 = 2.0,
-    bin_size: i32 = 62,
-    bin_buf_size_z_max: i32 = 5,
     requested_world_size: math.Vec2T(i32) = .{ .x = 1800, .y = 1200 },
     params: ResourceManager.Uniforms.Params = .{
         .spawn_count = 0,
 
-        .bin_size = 0,
+        .entropy = 0.1,
+        .grid_size = 32,
+
+        .bin_size = 62,
         .bin_buf_size = 0,
         .bin_buf_size_x = 0,
         .bin_buf_size_y = 0,
@@ -1587,7 +1586,7 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderFloat("zoom", @ptrCast(&state.params.zoom), 0.001, 2.0);
         _ = c.ImGui_SliderInt("ants type count", @ptrCast(&state.ant_type_count), 1, cast(i32, state.max_ant_type_count));
         _ = c.ImGui_SliderInt("grid size", @ptrCast(&state.params.grid_size), 1, 100);
-        _ = c.ImGui_SliderInt("bin size", @ptrCast(&state.bin_size), 4, 200);
+        _ = c.ImGui_SliderInt("bin size", @ptrCast(&state.params.bin_size), 4, 200);
         _ = c.ImGui_SliderFloat("entropy", @ptrCast(&state.params.entropy), 0.0, 1.0);
         reset = c.ImGui_SliderFloat("friction", @ptrCast(&state.friction), 0.0, 5.0) or reset;
 

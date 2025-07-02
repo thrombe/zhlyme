@@ -37,7 +37,6 @@
      int bin_buf_size_y;
      int world_size_x;
      int world_size_y;
-     float pheromone_attraction_scale;
      float entropy;
      float friction;
      int half_spread_max;
