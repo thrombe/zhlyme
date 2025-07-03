@@ -138,6 +138,10 @@ vec3 oklab_mix(vec3 lin1, vec3 lin2, float a) {
     return kLMStoCONE*(lms*lms*lms);
 }
 
+vec3 oklab_mix2(vec3 lin1, vec3 lin2, f32 t) {
+    return linear_from_oklab(mix(oklab_from_linear(lin1), oklab_from_linear(lin2), t));
+}
+
 uint rgba_encode_u32(vec4 color) {
     uint r = uint(color.r * 255.0);
     uint g = uint(color.g * 255.0);

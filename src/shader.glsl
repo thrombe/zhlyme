@@ -434,12 +434,13 @@ void set_seed(int id) {
             // TODO: maybe also bind 'pheromones_back' as an image and do the fancy texture sampling blur
             count += 1.0;
             npb.color.w += pb.color.w;
-            npb.color.xyz = mix(npb.color.xyz, pb.color.xyz, 1.0/count);
+            npb.color.xyz = oklab_mix2(npb.color.xyz, pb.color.xyz, 1.0/count);
         }
         npb.color.w /= count;
 
         PheromoneBin opb = pheromones_back[id.y * world.x + id.x];
-        npb.color = mix(opb.color, npb.color, 10.0 * ubo.params.delta);
+        npb.color.rgb = oklab_mix2(opb.color.rgb, npb.color.rgb, 10.0 * ubo.params.delta);
+        npb.color.w = mix(opb.color.w, npb.color.w, 10.0 * ubo.params.delta);
 
         if (push.dimension == 1) {
             npb.color.w = max(0.0, npb.color.w - ubo.params.pheromone_fade * ubo.params.delta);
