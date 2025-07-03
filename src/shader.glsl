@@ -282,7 +282,30 @@ void set_seed(int id) {
                 if (dot(p.vel, dir) * pt.pheromone_attraction >= 0.0) {
                     PheromoneBin pb = pheromones_back[pos.y * world.x + pos.x];
                     f32 pheromone = pb.color.w * pt.pheromone_attraction * ubo.params.pheromone_attraction;
-                    f32 type_attraction = (dot(pb.color.xyz, pt.color.xyz) - ubo.params.pheromone_ant_color_match_threshold) * 1.0 / max(0.1, min(ubo.params.pheromone_ant_color_match_threshold, 1.0 - ubo.params.pheromone_ant_color_match_threshold));
+
+                    f32 threshold = ubo.params.pheromone_ant_color_match_threshold;
+
+                    // oklab distance is too good for this. we want a little more hand wavey distance
+                    // f32 type_match = dot(oklab_from_linear(pb.color.xyz), oklab_from_linear(pt.color.xyz));
+
+                    f32 type_match = dot(pb.color.xyz, pt.color.xyz);
+                    f32 type_attraction = (type_match - threshold) * 1.0 / max(0.1, min(threshold, 1.0 - threshold));
+
+                    // f32 type_attraction = 0.0;
+                    // if (threshold <= 0) {
+                    //     type_attraction = type_match > 0.0 ? 1.0 : 0.0;
+                    // } else if (threshold >= 1.0) {
+                    //     type_attraction = type_match < 1.0 ? -1.0 : 0.0;
+                    // } else {
+                    //     type_attraction = type_match <= threshold
+                    //         ? (type_match - threshold) / threshold
+                    //         : (type_match - threshold) / (1.0 - threshold);
+                    // }
+
+                    // f32 type_distance = length(pb.color.xyz - pt.color.xyz);
+                    // f32 sim = 1.0 - step(1.0 - threshold, type_distance);
+                    // f32 type_attraction = sim * 2.0 - 1.0;
+
                     pdir += dir * pheromone * type_attraction;
                 }
             }
