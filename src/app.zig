@@ -292,7 +292,7 @@ pub const ResourceManager = struct {
         const device = &ctx.device;
 
         var uniform_buf = try Buffer.new_initialized(ctx, .{
-            .size = @sizeOf(Uniforms),
+            .size = @sizeOf(Uniforms.shader_type),
             .usage = .{ .uniform_buffer_bit = true },
             .memory_type = .{
                 // https://community.khronos.org/t/memory-type-practice-for-an-mvp-uniform-buffer/109458/7
@@ -304,27 +304,28 @@ pub const ResourceManager = struct {
                 .host_coherent_bit = true,
             },
             .desc_type = .uniform_buffer,
-        }, std.mem.zeroes(Uniforms), pool);
+        }, std.mem.zeroes(Uniforms.shader_type), pool);
         errdefer uniform_buf.deinit(device);
 
         const ant_types = try allocator.alloc(AntType, v.ant_type_count);
         errdefer allocator.free(ant_types);
         @memset(ant_types, std.mem.zeroes(AntType));
 
-        var ant_types_buf = try Buffer.new_from_slice(ctx, .{
+        var ant_types_buf = try Buffer.new(ctx, .{
+            .size = @sizeOf(AntType.shader_type) * ant_types.len,
             .usage = .{ .storage_buffer_bit = true },
             .memory_type = .{ .device_local_bit = true, .host_visible_bit = true, .host_coherent_bit = true },
-        }, ant_types, pool);
+        });
         errdefer ant_types_buf.deinit(device);
 
         var ants_back = try Buffer.new(ctx, .{
-            .size = @sizeOf(Ant) * v.num_ants,
+            .size = @sizeOf(Ant.shader_type) * v.num_ants,
             .usage = .{ .storage_buffer_bit = true },
         });
         errdefer ants_back.deinit(device);
 
         var ants = try Buffer.new(ctx, .{
-            .size = @sizeOf(Ant) * v.num_ants,
+            .size = @sizeOf(Ant.shader_type) * v.num_ants,
             .usage = .{ .storage_buffer_bit = true },
         });
         errdefer ants.deinit(device);
@@ -346,12 +347,12 @@ pub const ResourceManager = struct {
 
         const world = .{ .width = @as(u32, 1500), .height = @as(u32, 1500) };
         var pheromone_back_buf = try Buffer.new_initialized(ctx, .{
-            .size = @sizeOf(f32) * (world.width * world.height),
+            .size = @sizeOf(PheromoneBin.shader_type) * (world.width * world.height),
             .usage = .{ .storage_buffer_bit = true },
         }, std.mem.zeroes(f32), pool);
         errdefer pheromone_back_buf.deinit(device);
         var pheromone_buf = try Buffer.new_initialized(ctx, .{
-            .size = @sizeOf(f32) * (world.width * world.height),
+            .size = @sizeOf(PheromoneBin.shader_type) * (world.width * world.height),
             .usage = .{ .storage_buffer_bit = true },
         }, std.mem.zeroes(f32), pool);
         errdefer pheromone_buf.deinit(device);
@@ -449,8 +450,10 @@ pub const ResourceManager = struct {
         defer device.unmapMemory(self.ant_types_buf.memory);
 
         const buf = self.ant_types;
-        const mem: [*c]AntType = @ptrCast(@alignCast(mapped));
-        @memcpy(mem[0..buf.len], buf);
+        const mem: [*c]AntType.shader_type = @ptrCast(@alignCast(mapped));
+        for (0..buf.len) |i| {
+            mem[i] = utils_mod.ShaderUtils.shader_object(AntType.shader_type, buf[i]);
+        }
     }
 
     pub const DescSets = enum(u32) {
@@ -475,7 +478,7 @@ pub const ResourceManager = struct {
             return @intFromEnum(self);
         }
     };
-    pub const AntType = extern struct {
+    pub const AntType = struct {
         color: Vec4,
         wander_strength: f32,
         pheromone_detection_distance: f32,
@@ -485,13 +488,22 @@ pub const ResourceManager = struct {
         collision_radius: f32,
         visual_radius: f32,
         collision_strength: f32,
+
+        const shader_type = utils_mod.ShaderUtils.shader_type(@This());
     };
-    pub const Ant = extern struct {
+    pub const Ant = struct {
         pos: math.Vec2,
         vel: math.Vec2,
         type_index: u32,
         age: f32,
         exposure: f32,
+
+        const shader_type = utils_mod.ShaderUtils.shader_type(@This());
+    };
+    pub const PheromoneBin = struct {
+        strength: f32,
+
+        const shader_type = utils_mod.ShaderUtils.shader_type(@This());
     };
     pub const DrawCall = vk.DrawIndexedIndirectCommand;
 
@@ -661,6 +673,7 @@ pub const RendererState = struct {
         try gen.add_struct("DrawCall", ResourceManager.DrawCall);
         try gen.add_struct("AntType", ResourceManager.AntType);
         try gen.add_struct("Ant", ResourceManager.Ant);
+        try gen.add_struct("PheromoneBin", ResourceManager.PheromoneBin);
         try gen.add_struct("Params", ResourceManager.Uniforms.Params);
         try gen.add_struct("PushConstantsCompute", ResourceManager.PushConstants.Compute);
         try gen.add_struct("PushConstantsReduce", ResourceManager.PushConstants.Reduce);

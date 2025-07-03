@@ -28,6 +28,10 @@
      float exposure;
  };
 
+ struct PheromoneBin {
+     float strength;
+ };
+
  struct Params {
      float delta;
      uint grid_size;

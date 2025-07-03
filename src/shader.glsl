@@ -57,10 +57,10 @@ layout(set = _set_ant_bins, binding = _bind_ant_bins) bufffer AntBinBuffer {
     int ant_bins[];
 };
 layout(set = _set_pheromones, binding = _bind_pheromones_back) bufffer PheromoneBackBuffer {
-    f32 pheromones_back[];
+    PheromoneBin pheromones_back[];
 };
 layout(set = _set_pheromones, binding = _bind_pheromones) bufffer PheromoneBuffer {
-    f32 pheromones[];
+    PheromoneBin pheromones[];
 };
 layout(set = _set_render, binding = _bind_ants_draw_call) bufffer AntsDrawCallBuffer {
     DrawCall draw_call;
@@ -280,13 +280,13 @@ void set_seed(int id) {
                 }
 
                 if (dot(p.vel, dir) * pt.pheromone_attraction >= 0.0) {
-                    pdir += dir * pheromones_back[pos.y * world.x + pos.x] * pt.pheromone_attraction * ubo.params.pheromone_attraction;
+                    pdir += dir * pheromones_back[pos.y * world.x + pos.x].strength * pt.pheromone_attraction * ubo.params.pheromone_attraction;
                 }
             }
         }
 
         int index = int(p.pos.y) * world.x + int(p.pos.x);
-        f32 pheromone = pheromones_back[index];
+        f32 pheromone = pheromones_back[index].strength;
 
         p.vel += pdir * 100.0 * ubo.params.delta;
         // TODO: i'll prob have to use some continuous noise functions to make this turning time step independent
@@ -358,7 +358,7 @@ void set_seed(int id) {
         p.pos = clamp(p.pos, vec2(0.0), world);
 
         // TODO: ants race to set this value. but whatever man
-        pheromones[index] = min(ubo.params.max_pheromone_strength, pheromone + pt.pheromone_strength);
+        pheromones[index].strength = min(ubo.params.max_pheromone_strength, pheromone + pt.pheromone_strength);
 
         p.age += 100.0 * ubo.params.delta;
         p.exposure = exposure * 100.0 * ubo.params.delta;
@@ -402,19 +402,19 @@ void set_seed(int id) {
             }
             
             // TODO: maybe also bind 'pheromones_back' as an image and do the fancy texture sampling blur
-            acc += pheromones_back[pos.y * world.x + pos.x];
+            acc += pheromones_back[pos.y * world.x + pos.x].strength;
             count += 1.0;
         }
         acc /= count;
 
-        f32 orig = pheromones_back[id.y * world.x + id.x];
+        f32 orig = pheromones_back[id.y * world.x + id.x].strength;
         acc = mix(orig, acc, 10.0 * ubo.params.delta);
 
         if (push.dimension == 1) {
             acc = max(0.0, acc - ubo.params.pheromone_fade * ubo.params.delta);
         }
 
-        pheromones[id.y * world.x + id.x] = acc;
+        pheromones[id.y * world.x + id.x].strength = acc;
     }
 #endif // SPREAD_PHEROMONES_PASS
 
@@ -491,7 +491,7 @@ void set_seed(int id) {
 
         int index = int(coord.y) * world.x + int(coord.x);
         if (coord.x > 0 && coord.y > 0 && coord.x < world.x && coord.y < world.y && index >=0 && index < world.x * world.y) {
-            f32 val = pheromones[index];
+            f32 val = pheromones[index].strength;
 
             fcolor = vec4(vec3(val/(2.0 * ubo.params.max_pheromone_strength)), 1.0);
         } else {
