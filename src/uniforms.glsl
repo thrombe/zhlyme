@@ -37,6 +37,8 @@
      uint grid_size;
      float zoom;
      float visual_radius_scale;
+     float pheromone_gamma;
+     float pheromone_alpha_scale;
      uint randomize_ant_types;
      uint randomize_ant_attrs;
      uint ant_type_count;

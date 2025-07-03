@@ -535,6 +535,8 @@ pub const ResourceManager = struct {
             grid_size: u32,
             zoom: f32 = 1.0,
             visual_radius_scale: f32 = 4.0,
+            pheromone_gamma: f32 = 2.2,
+            pheromone_alpha_scale: f32 = 0.7,
 
             randomize_ant_types: u32 = 0,
             randomize_ant_attrs: u32 = 0,
@@ -1627,6 +1629,8 @@ pub const GuiState = struct {
         _ = c.ImGui_SliderInt("FPS cap", @ptrCast(&state.fps_cap), 5, 500);
         reset = c.ImGui_SliderInt("spawn count", @ptrCast(&state.spawn_count), 0, 10000) or reset;
         _ = c.ImGui_SliderFloat("zoom", @ptrCast(&state.params.zoom), 0.001, 2.0);
+        _ = c.ImGui_SliderFloat("pheromone_gamma", @ptrCast(&state.params.pheromone_gamma), 0, 5);
+        _ = c.ImGui_SliderFloat("pheromone_alpha_scale", @ptrCast(&state.params.pheromone_alpha_scale), 0, 3);
         _ = c.ImGui_SliderInt("ants type count", @ptrCast(&state.ant_type_count), 1, cast(i32, state.max_ant_type_count));
         _ = c.ImGui_SliderInt("grid size", @ptrCast(&state.params.grid_size), 1, 100);
         _ = c.ImGui_SliderFloat("visual_radius_scale", @ptrCast(&state.params.visual_radius_scale), 0, 100);

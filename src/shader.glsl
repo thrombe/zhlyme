@@ -408,15 +408,12 @@ void set_seed(int id) {
             // TODO: maybe also bind 'pheromones_back' as an image and do the fancy texture sampling blur
             count += 1.0;
             npb.color.w += pb.color.w;
-            // npb.color.xyz = mix(npb.color.xyz, pb.color.xyz, pb.color.w/npb.color.w);
             npb.color.xyz = mix(npb.color.xyz, pb.color.xyz, 1.0/count);
-            // npb.color.xyz = pb.color.xyz;
         }
         npb.color.w /= count;
 
         PheromoneBin opb = pheromones_back[id.y * world.x + id.x];
         npb.color = mix(opb.color, npb.color, 10.0 * ubo.params.delta);
-        // npb.color.w = mix(opb.color.w, npb.color.w, 10.0 * ubo.params.delta);
 
         if (push.dimension == 1) {
             npb.color.w = max(0.0, npb.color.w - ubo.params.pheromone_fade * ubo.params.delta);
@@ -503,18 +500,7 @@ void set_seed(int id) {
         int index = int(coord.y) * world.x + int(coord.x);
         if (coord.x > 0 && coord.y > 0 && coord.x < world.x && coord.y < world.y && index >=0 && index < world.x * world.y) {
             PheromoneBin pb = pheromones[index];
-            // vec4 color = vec4(1.0);
-            // if (pb.type >= 0) {
-            //     color = ant_types[pb.type].color;
-            // }
-            // color.w *= pb.strength/(2.0 * ubo.params.max_pheromone_strength);
-
-            // fcolor = vec4(pb.color.xyz, pb.color.w / (2.0 * ubo.params.max_pheromone_strength));
-            fcolor = vec4(normalize(gamma_decode(pb.color.xyz, 3.0)), pb.color.w / (2.0 * ubo.params.max_pheromone_strength));
-            // fcolor = vec4(vec3(1.0), pb.color.w);
-            // fcolor = vec4(pb.color.w);
-            // fcolor = pb.color;
-            // fcolor = vec4(vec3(float(length(pb.color) > -100000)), pb.color.w);
+            fcolor = vec4(normalize(gamma_decode(pb.color.xyz, ubo.params.pheromone_gamma)), pb.color.w * ubo.params.pheromone_alpha_scale / ubo.params.max_pheromone_strength);
         } else {
             fcolor = vec4(0.0);
         }
