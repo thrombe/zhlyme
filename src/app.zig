@@ -534,9 +534,9 @@ pub const ResourceManager = struct {
 
             grid_size: u32,
             zoom: f32 = 1.0,
-            visual_radius_scale: f32 = 4.0,
-            pheromone_gamma: f32 = 2.2,
-            pheromone_alpha_scale: f32 = 0.7,
+            visual_radius_scale: f32 = 2.0,
+            pheromone_gamma: f32 = 0.36,
+            pheromone_alpha_scale: f32 = 1.0,
 
             randomize_ant_types: u32 = 0,
             randomize_ant_attrs: u32 = 0,
@@ -1373,7 +1373,7 @@ pub const AppState = struct {
     max_ant_count: u32 = 100000,
     max_ant_type_count: u32 = 10,
     ant_type_count: u32 = 5,
-    spawn_count: u32 = 10000,
+    spawn_count: u32 = 15000,
     requested_world_size: math.Vec2T(i32) = .{ .x = 1800, .y = 1200 },
     params: ResourceManager.Uniforms.Params = .{
         .spawn_count = 0,
@@ -1437,7 +1437,7 @@ pub const AppState = struct {
         };
 
         for (app.resources.ant_types) |*pt| {
-            pt.color = Vec3.random(&zrng.color).normalize().scale(@sqrt(@as(f32, 3))).withw(1.0);
+            pt.color = Vec3.random(&zrng.color).normalize().withw(1.0);
             pt.visual_radius = zrng.visual_radius.next();
         }
 
