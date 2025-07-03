@@ -30,6 +30,7 @@
 
  struct PheromoneBin {
      float strength;
+     int type;
  };
 
  struct Params {

@@ -359,6 +359,7 @@ void set_seed(int id) {
 
         // TODO: ants race to set this value. but whatever man
         pheromones[index].strength = min(ubo.params.max_pheromone_strength, pheromone + pt.pheromone_strength);
+        pheromones[index].type = int(p.type_index);
 
         p.age += 100.0 * ubo.params.delta;
         p.exposure = exposure * 100.0 * ubo.params.delta;
@@ -377,7 +378,9 @@ void set_seed(int id) {
             return;
         }
 
-        f32 acc = 0.0;
+        PheromoneBin npb;
+        npb.strength = 0.0;
+        npb.type = -1;
         f32 count = 0.0;
         int spread = ubo.params.spread_half_size;
         for (int t = -spread; t <= spread; t++) {
@@ -401,20 +404,30 @@ void set_seed(int id) {
                 }
             }
             
+            PheromoneBin pb = pheromones_back[pos.y * world.x + pos.x];
             // TODO: maybe also bind 'pheromones_back' as an image and do the fancy texture sampling blur
-            acc += pheromones_back[pos.y * world.x + pos.x].strength;
+            npb.strength += pb.strength;
             count += 1.0;
+            if ((npb.type < 0 || random() > 0.5) && pb.type >= 0) {
+                npb.type = pb.type;
+            }
         }
-        acc /= count;
+        npb.strength /= count;
 
-        f32 orig = pheromones_back[id.y * world.x + id.x].strength;
-        acc = mix(orig, acc, 10.0 * ubo.params.delta);
+        PheromoneBin opb = pheromones_back[id.y * world.x + id.x];
+        npb.strength = mix(opb.strength, npb.strength, 10.0 * ubo.params.delta);
 
         if (push.dimension == 1) {
-            acc = max(0.0, acc - ubo.params.pheromone_fade * ubo.params.delta);
+            npb.strength = max(0.0, npb.strength - ubo.params.pheromone_fade * ubo.params.delta);
+        }
+        if (npb.type < 0 || (random() > 0.5 && opb.type >= 0)) {
+            npb.type = opb.type;
+        }
+        if (abs(npb.strength) < 0.0001) {
+            npb.type = -1;
         }
 
-        pheromones[id.y * world.x + id.x].strength = acc;
+        pheromones[id.y * world.x + id.x] = npb;
     }
 #endif // SPREAD_PHEROMONES_PASS
 
@@ -491,9 +504,14 @@ void set_seed(int id) {
 
         int index = int(coord.y) * world.x + int(coord.x);
         if (coord.x > 0 && coord.y > 0 && coord.x < world.x && coord.y < world.y && index >=0 && index < world.x * world.y) {
-            f32 val = pheromones[index].strength;
+            PheromoneBin pb = pheromones[index];
+            vec4 color = vec4(1.0);
+            if (pb.type >= 0) {
+                color = ant_types[pb.type].color;
+            }
+            color.w *= pb.strength/(2.0 * ubo.params.max_pheromone_strength);
 
-            fcolor = vec4(vec3(val/(2.0 * ubo.params.max_pheromone_strength)), 1.0);
+            fcolor = color;
         } else {
             fcolor = vec4(0.0);
         }
