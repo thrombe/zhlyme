@@ -280,7 +280,10 @@ void set_seed(int id) {
                 }
 
                 if (dot(p.vel, dir) * pt.pheromone_attraction >= 0.0) {
-                    pdir += dir * pheromones_back[pos.y * world.x + pos.x].color.w * pt.pheromone_attraction * ubo.params.pheromone_attraction;
+                    PheromoneBin pb = pheromones_back[pos.y * world.x + pos.x];
+                    f32 pheromone = pb.color.w * pt.pheromone_attraction * ubo.params.pheromone_attraction;
+                    f32 type_attraction = (dot(pb.color.xyz, pt.color.xyz) - ubo.params.pheromone_ant_color_match_threshold) * 1.0 / max(0.1, min(ubo.params.pheromone_ant_color_match_threshold, 1.0 - ubo.params.pheromone_ant_color_match_threshold));
+                    pdir += dir * pheromone * type_attraction;
                 }
             }
         }
