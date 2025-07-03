@@ -527,7 +527,7 @@ void set_seed(int id) {
         int index = int(coord.y) * world.x + int(coord.x);
         if (coord.x > 0 && coord.y > 0 && coord.x < world.x && coord.y < world.y && index >=0 && index < world.x * world.y) {
             PheromoneBin pb = pheromones[index];
-            fcolor = vec4(normalize(gamma_decode(pb.color.xyz, ubo.params.pheromone_gamma)), pb.color.w * ubo.params.pheromone_alpha_scale / ubo.params.max_pheromone_strength);
+            fcolor = vec4(gamma_decode(pb.color.xyz, ubo.params.pheromone_gamma), pb.color.w * ubo.params.pheromone_alpha_scale / ubo.params.max_pheromone_strength);
         } else {
             fcolor = vec4(0.0);
         }

@@ -940,10 +940,10 @@ pub const RendererState = struct {
             .alpha_blend = .{
                 .blend_enable = vk.TRUE,
                 .src_color_blend_factor = .src_alpha,
-                .dst_color_blend_factor = .one,
+                .dst_color_blend_factor = .one_minus_src_alpha,
                 .color_blend_op = .add,
-                .src_alpha_blend_factor = .one,
-                .dst_alpha_blend_factor = .zero,
+                .src_alpha_blend_factor = .src_alpha,
+                .dst_alpha_blend_factor = .one_minus_src_alpha,
                 .alpha_blend_op = .add,
                 .color_write_mask = .{ .r_bit = true, .g_bit = true, .b_bit = true, .a_bit = true },
             },
@@ -1437,7 +1437,7 @@ pub const AppState = struct {
         };
 
         for (app.resources.ant_types) |*pt| {
-            pt.color = Vec3.random(&zrng.color).normalize().withw(1.0);
+            pt.color = Vec3.random(&zrng.color).normalize().scale(@sqrt(@as(f32, 3))).withw(1.0);
             pt.visual_radius = zrng.visual_radius.next();
         }
 
