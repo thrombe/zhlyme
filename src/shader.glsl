@@ -280,13 +280,13 @@ void set_seed(int id) {
                 }
 
                 if (dot(p.vel, dir) * pt.pheromone_attraction >= 0.0) {
-                    pdir += dir * pheromones_back[pos.y * world.x + pos.x].strength * pt.pheromone_attraction * ubo.params.pheromone_attraction;
+                    pdir += dir * pheromones_back[pos.y * world.x + pos.x].color.w * pt.pheromone_attraction * ubo.params.pheromone_attraction;
                 }
             }
         }
 
         int index = int(p.pos.y) * world.x + int(p.pos.x);
-        f32 pheromone = pheromones_back[index].strength;
+        f32 pheromone = pheromones_back[index].color.w;
 
         p.vel += pdir * 100.0 * ubo.params.delta;
         // TODO: i'll prob have to use some continuous noise functions to make this turning time step independent
@@ -358,8 +358,8 @@ void set_seed(int id) {
         p.pos = clamp(p.pos, vec2(0.0), world);
 
         // TODO: ants race to set this value. but whatever man
-        pheromones[index].strength = min(ubo.params.max_pheromone_strength, pheromone + pt.pheromone_strength);
-        pheromones[index].type = int(p.type_index);
+        pheromones[index].color = ant_types[p.type_index].color;
+        pheromones[index].color.w *= min(ubo.params.max_pheromone_strength, pheromone + pt.pheromone_strength);
 
         p.age += 100.0 * ubo.params.delta;
         p.exposure = exposure * 100.0 * ubo.params.delta;
@@ -379,8 +379,8 @@ void set_seed(int id) {
         }
 
         PheromoneBin npb;
-        npb.strength = 0.0;
-        npb.type = -1;
+        npb.color.w = 0.0;
+        npb.color.rgb = vec3(1.0);
         f32 count = 0.0;
         int spread = ubo.params.spread_half_size;
         for (int t = -spread; t <= spread; t++) {
@@ -406,25 +406,21 @@ void set_seed(int id) {
             
             PheromoneBin pb = pheromones_back[pos.y * world.x + pos.x];
             // TODO: maybe also bind 'pheromones_back' as an image and do the fancy texture sampling blur
-            npb.strength += pb.strength;
+            npb.color.w += pb.color.w;
+            npb.color.xyz = mix(pb.color.xyz, npb.color.xyz, pb.color.w/npb.color.w);
             count += 1.0;
-            if ((npb.type < 0 || random() > 0.5) && pb.type >= 0) {
-                npb.type = pb.type;
-            }
         }
-        npb.strength /= count;
+        npb.color.w /= count;
 
         PheromoneBin opb = pheromones_back[id.y * world.x + id.x];
-        npb.strength = mix(opb.strength, npb.strength, 10.0 * ubo.params.delta);
+        // npb.color = mix(opb.color, npb.color, 10.0 * ubo.params.delta);
+        npb.color.w = mix(opb.color.w, npb.color.w, 10.0 * ubo.params.delta);
 
         if (push.dimension == 1) {
-            npb.strength = max(0.0, npb.strength - ubo.params.pheromone_fade * ubo.params.delta);
+            npb.color.w = max(0.0, npb.color.w - ubo.params.pheromone_fade * ubo.params.delta);
         }
-        if (npb.type < 0 || (random() > 0.5 && opb.type >= 0)) {
-            npb.type = opb.type;
-        }
-        if (abs(npb.strength) < 0.0001) {
-            npb.type = -1;
+        if (abs(npb.color.w) < 0.0001) {
+            npb.color.xyz = vec3(1.0);
         }
 
         pheromones[id.y * world.x + id.x] = npb;
@@ -505,13 +501,13 @@ void set_seed(int id) {
         int index = int(coord.y) * world.x + int(coord.x);
         if (coord.x > 0 && coord.y > 0 && coord.x < world.x && coord.y < world.y && index >=0 && index < world.x * world.y) {
             PheromoneBin pb = pheromones[index];
-            vec4 color = vec4(1.0);
-            if (pb.type >= 0) {
-                color = ant_types[pb.type].color;
-            }
-            color.w *= pb.strength/(2.0 * ubo.params.max_pheromone_strength);
+            // vec4 color = vec4(1.0);
+            // if (pb.type >= 0) {
+            //     color = ant_types[pb.type].color;
+            // }
+            // color.w *= pb.strength/(2.0 * ubo.params.max_pheromone_strength);
 
-            fcolor = color;
+            fcolor = vec4(pb.color.xyz, pb.color.w / (2.0 * ubo.params.max_pheromone_strength));
         } else {
             fcolor = vec4(0.0);
         }

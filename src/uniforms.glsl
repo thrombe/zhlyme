@@ -29,8 +29,7 @@
  };
 
  struct PheromoneBin {
-     float strength;
-     int type;
+     vec4 color;
  };
 
  struct Params {

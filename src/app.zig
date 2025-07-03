@@ -501,8 +501,7 @@ pub const ResourceManager = struct {
         const shader_type = utils_mod.ShaderUtils.shader_type(@This());
     };
     pub const PheromoneBin = struct {
-        strength: f32,
-        type: i32,
+        color: Vec4,
 
         const shader_type = utils_mod.ShaderUtils.shader_type(@This());
     };
